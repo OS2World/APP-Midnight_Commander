@@ -1,0 +1,7 @@
+- copy file mc-4.5.4.zip to c:/usr/lib (or other directory x:/yyy/zzz and
+  add to CONFIG.SYS line "SET MC_LIBDIR=x:/yyy/zzz/mc" )
+- unzip mc-4.5.4.zip
+- copy mc/bin/mmap.dll to LIBPATH 
+- copy mc/bin/*.exe to PATH or modify examples mc/doc/*.cmd
+- if need set environment variables HOME, TMP, TERM, TERMCAP
+  (modify config.sys or use script)

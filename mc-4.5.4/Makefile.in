@@ -1,0 +1,140 @@
+srcdir = @srcdir@
+VPATH  = @srcdir@
+
+rootdir = $(srcdir)
+@MCFGR@@MCF@
+
+foreigndirs=pc
+codedirs=vfs lib doc slang gtkedit edit src gnome new_icons icons idl
+unixdirs=intl $(codedirs) @POSUB@
+alldirs=$(unixdirs) $(foreigndirs) 
+subdirs=$(alldirs)
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+DISTMAIN =	configure configure.in NEWS README INSTALL INSTALL.FAST \
+		Makefile.in FAQ COPYING create_vcs install-sh \
+		config.h.in mc-aclocal.m4 aclocal.m4 acconfig.h \
+		VERSION mcfn_install.in Make.common.in README.PC \
+		mc.spec Specfile README.QNX VERSION.in \
+		mkinstalldirs autogen.sh ABOUT-NLS gettext.m4
+
+all: 
+	@for dir in @INTLSUB@ ${codedirs} @POSUB@; do \
+		cd $$dir; \
+		${MAKE} all || exit 1; \
+		cd .. ;\
+	done
+
+static:
+	$(MAKE) _LDFLAGS="-static $(_LDFLAGS)"
+
+configure: configure.in aclocal.m4
+	chmod 755 configure
+
+GNOME_M4_FILES = macros/gnome.m4 macros/gnome-vfs.m4 macros/gnome-undelfs.m4 \
+	macros/linger.m4
+
+aclocal.m4: mc-aclocal.m4 $(GNOME_M4_FILES) gettext.m4
+	cd $(srcdir); cat $(GNOME_M4_FILES) mc-aclocal.m4 gettext.m4 > aclocal.m4
+
+config.h.in: configure.in acconfig.h
+	cd $(srcdir); autoheader
+
+install: installdirs @vcs@
+	@for I in $(unixdirs); do cd $$I; $(MAKE) DESTDIR=$(DESTDIR) $@ || exit 1; cd ..; done
+	$(INSTALL_DATA) $(srcdir)/FAQ $(DESTDIR)$(libdir)/FAQ
+	$(INSTALL_PROGRAM) mcfn_install $(DESTDIR)$(suppbindir)/mcfn_install
+	chmod +x $(DESTDIR)$(suppbindir)/mcfn_install
+	@echo "Please verify that the configuration values are correctly"
+	@echo "set in the mc.ext file in $(libdir)"
+
+install.create_vcs:
+	$(INSTALL_PROGRAM) $(srcdir)/create_vcs $(DESTDIR)$(suppbindir)/create_vcs
+	if test x$(DESTDIR) = x; then $(SHELL) $(srcdir)/create_vcs; fi
+
+installdirs:
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(bindir) $(DESTDIR)$(libdir)
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(mandir) $(DESTDIR)$(man8dir)
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(icondir) $(DESTDIR)$(suppbindir)
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(tidir) $(DESTDIR)$(extfsdir)
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(idldir)
+
+mcfninstall:
+	-/bin/sh ./mcfn_install
+
+uninstall:
+	@for I in $(unixdirs); do cd $$I; $(MAKE) $@ || exit 1; cd ..; done
+	-$(RMF) $(DESTDIR)$(libdir)/FAQ
+	-$(RMF) $(DESTDIR)$(suppbindir)/mcfn_install
+	-rmdir $(DESTDIR)$(suppbindir)
+	-rmdir $(DESTDIR)$(libdir)
+	@echo Midnight Commander uninstalled
+
+cross TAGS clean depend dep:
+	@for I in $(unixdirs); do cd $$I; $(MAKE) $@ || exit 1; cd ..; done
+
+Makefile: Makefile.in config.status
+	CONFIG_FILES=Makefile CONFIG_HEADERS= $(SHELL) config.status
+
+config.status: 
+	if test -x config.status; then config.status --recheck; \
+	else $(SHELL) configure; fi
+
+realclean: clean 
+	rm -f *~
+	rm -f config.cache
+
+# distclean goal is for making a clean source tree, but if you have run 
+# configure from a different directory, then doesn't destroy all your
+# hardly compiled and linked stuff. That's why there is always $(srcdir)/
+# In that case most of those commands do nothing, except cleaning *~
+# and cleaning source links.
+distclean:
+	rm -f $(srcdir)/*~ $(srcdir)/config.cache $(srcdir)/config.h
+	rm -f $(srcdir)/mcfn_install
+	@for I in $(alldirs); do cd $$I; $(MAKE) $@ || exit 1; cd ..; done
+	rm -f $(srcdir)/Makefile $(srcdir)/Make.common
+	rm -f lib/mc.ext mcfn_install 
+	rm -f vfs/extfs/{ftplist,uzip,uzoo,lslR,ulha,ucpio,deb,urar,uar}
+	rm -f $(srcdir)/config.log $(srcdir)/config.status 
+
+distcopy:
+	sed -e "s/^%define ver .*/%define ver      $(VERSION)/; s/^%define rel .*/%define rel      1/" mc.spec > Specfile
+	mkdir ../mc-$(VERSION)
+	cp $(DISTMAIN) ../mc-$(VERSION);
+	for I in $(alldirs); do \
+	    mkdir ../mc-$(VERSION)/$$I; \
+	    cd $$I ; \
+	    $(MAKE) distcopy VERSION=$(VERSION) PACKAGE=mc || exit 1; \
+	    cd ..; done
+	mkdir ../mc-$(VERSION)/macros
+	cp $(GNOME_M4_FILES) ../mc-$(VERSION)/macros
+	cd po; $(MAKE) || exit 1; cd ..;
+	cp po/Makefile.in.in ../mc-$(VERSION)/po;
+	cp po/POTFILES.in ../mc-$(VERSION)/po;
+	cp po/*.po po/*.gmo po/mc.pot po/stamp-cat-id po/cat-id-tbl.c ../mc-$(VERSION)/po;
+	(cd ..; tar cvf - mc-$(VERSION) | \
+	gzip -f9 > mc-$(VERSION).tar.gz)
+
+dist: configure config.h.in distcopy
+
+check: Makefile
+	rm -rf ../mc-$(VERSION)
+	tar xzvf ../mc-$(VERSION).tar.gz
+	mkdir mc-$(VERSION)/=build
+	mkdir mc-$(VERSION)/=inst
+	dc_install_base=`cd mc-$(VERSION)/=inst && pwd`; \
+	cd mc-$(VERSION)/=build \
+	  && ../configure --srcdir=.. --prefix=$$dc_install_base \
+	  && $(MAKE) \
+	  && make install \
+	-rm -rf mc-$(VERSION)
+
+distcheck: dist check
+	@echo ***********************************
+	@echo mc-$(VERSION) is ready for release
+	@echo ***********************************
+

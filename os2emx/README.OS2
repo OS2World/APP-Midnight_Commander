@@ -1,0 +1,90 @@
+-----------------------------------------------------------------------------
+Midnight Commander 4.5.4 Beta for OS/2 with EMX  Sat Jan  2 12:10:44 CET 1999
+-----------------------------------------------------------------------------
+Original Midnight Commander 4.5.4 Beta source (98-12-30):
+http://www.gnome.org/cgi-bin/mc/download/devel/mc-4.5.4.tar.gz.html
+-----------------------------------------------------------------------------
+The Midnight Commander 4.5.4
+with mouse support on xterm and the OS/2 console.
+Edition: text mode.
+Virtual File System: tarfs, extfs, ftpfs, mcfs.
+With builtin Editor
+Using S-lang library with termcap database
+-----------------------------------------------------------------------------
+Midnight Commander 4.5.4 features mostly supported. 
+   * OS/2 console, xterm and telnet session,
+   * mouse support for console and xterm,
+   * new mc -K option switch to "unix" code for console (telnet from 
+     unix host, "Learn keys" feature etc.) 
+   * VFS (virtual file system) supported (with drives on remote system),
+     ftpfs is patched to work with IBM ftp server for OS/2,
+   * internal editor is supported (including syntax highlighting and
+     Linux console features).
+   * mcserv for OS/2 with private mc passwd support and new -o option
+     for standard mc clients ( in this mode cannot change drives ) 	
+-----------------------------------------------------------------------------
+extfs tested only for *.tar *.tar.gz *.tgz *.zip
+-----------------------------------------------------------------------------
+os2 keyboard specific keys:     
+     select group      M-+  <Alt>+<+> (numeric keypad) 
+     unselect group    M--  <Alt>+<-> (numeric keypad) 
+     reverse selection M-*  <Alt>+<*> (numeric keypad) 
+     find file         M-x
+     filtered view     only from menu 
+-----------------------------------------------------------------------------
+requiered: emx runtime
+           environment variables 
+              HOME, TMP, TERM, TERMCAP
+              MC_LIBDIR ( if different from compiled path "c:/usr/lib/mc" ) 
+	   gnu fileutils, gzip, tar, sh ...
+           termcap file ( sample file included ) 
+	   mmap.dll (included)
+-----------------------------------------------------------------------------
+CONFIG.SYS example:
+~~~~~~~~~~~~~~~~~~
+...
+SET HOME=c:/home
+SET TERM=ansi
+SET TERMCAP=c:/usr/XFree86/lib/X11/etc/emx.termcap.x11
+SET TMP=C:\TMP
+SET MC_LIBDIR=c:/usr/local/lib/mc
+...
+-----------------------------------------------------------------------------
+mc.cmd example:
+~~~~~~~~~~~~~~~
+@SET SHELL=c:/bin/sh
+@SET MC_LIBDIR=c:/usr/lib/mc
+@SET TERMCAP=%MC_LIBDIR%/termcap
+@%MC_LIBDIR%\bin\mc %1 %2 %3 %4 %5 %6 %7 %8 %9
+-----------------------------------------------------------------------------
+UNIX code used, common port PS, Win and OS/2 maybe no best choice, 
+OS/2 with EMX is in this time much better for porting Unix applications.
+PC code variablles #ifdef _OS_NT, __os2__  or OS2_NT not used.
+Build with emx 0.9c.
+New variables: OS2EMX              code specific for this port
+               OS2EMX_CHG          maybe bugs or additions to MC code
+               ALTERNATIVE_CONSOLE runtime choice unix, X or OS specific
+                                   console
+               LOCAL_DRIVES        system has local drives
+                                   chgdrive:  "x:" or "cd x:"
+               HETER_NET           heterogenous network ( no pure unix ), 
+                                   drives on remote host etc.
+                                   path example:  "/#mc:host/c:/home/work"  
+                                   rem.chgdrive:  "cd /#mc:host/d:"
+               OS_INFO             local system identification string "OS/2" 
+-----------------------------------------------------------------------------
+Partialy used code from the port for OS/2 by
+    Alexander Dong <ado@software-ag.de>
+the PC port by 
+    Pavel Roskin <pavel_roskin@geocities.com>
+the passwd access library and GNU crypt library ported to OS/2 by
+    Kai Uwe Rommel <rommel@ars.muc.de>
+the rpc library OS/2 port by
+    Holger Veit <Holger.Veit@gmd.de>
+the Memory Mapped Files Emulation Layer v1.00 by
+    Maurilio Longo <md2520@mclink.it>
+-----------------------------------------------------------------------------
+Midnight Commander Home : http://www.gnome.org/mc/
+-----------------------------------------------------------------------------
+
+Bohumir Horeni <horeni@login.cz>

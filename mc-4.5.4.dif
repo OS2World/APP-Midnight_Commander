@@ -1,0 +1,2934 @@
+diff -Naur mc-4.5.4/gtkedit/editcmd.c mc-4.5.4.emx/gtkedit/editcmd.c
+--- mc-4.5.4/gtkedit/editcmd.c	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/gtkedit/editcmd.c	Fri Jan  1 18:23:24 1999
+@@ -390,10 +390,14 @@
+ 
+     if (*p != '/') {
+ 	if (strlen (cwd) == 0) {
++#ifdef GETCWD
++	    GETCWD (cwd, MAX_PATH_LEN);
++#else
+ #ifdef HAVE_GETCWD
+ 	    getcwd (cwd, MAX_PATH_LEN);
+ #else
+ 	    getwd (cwd);
++#endif
+ #endif
+ 	}
+ 	r = malloc (strlen (cwd) + strlen (p) + 2);
+diff -Naur mc-4.5.4/gtkedit/syntax.c mc-4.5.4.emx/gtkedit/syntax.c
+--- mc-4.5.4/gtkedit/syntax.c	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/gtkedit/syntax.c	Sat Jan  2 07:36:36 1999
+@@ -3027,8 +3027,13 @@
+ 	fclose (f);
+ 	return fopen (syntax_file, "r");
+     }
++#ifdef OS2EMX_CHG
++    memset (line, 0, 80);
++    fread (line, 79, 1, f);
++#else
+     memset (line, 0, 79);
+     fread (line, 80, 1, f);
++#endif
+     if (!strstr (line, "syntax rules version")) {
+ 	goto rename_rule_file;
+     } else {
+@@ -3037,6 +3042,9 @@
+ 	if (atoi (p) < atoi (CURRENT_SYNTAX_RULES_VERSION)) {
+ 	    char s[1024];
+ 	  rename_rule_file:
++#ifdef OS2EMX_CHG
++            fclose(f);  /* cannot rename open file */ 
++#endif
+ 	    strcpy (s, syntax_file);
+ 	    strcat (s, ".OLD");
+ 	    unlink (s);
+diff -Naur mc-4.5.4/intl/dcgettext.c mc-4.5.4.emx/intl/dcgettext.c
+--- mc-4.5.4/intl/dcgettext.c	Thu Mar 19 18:15:14 1998
++++ mc-4.5.4.emx/intl/dcgettext.c	Fri Jan  1 18:50:22 1999
+@@ -277,7 +277,11 @@
+       ADD_BLOCK (block_list, dirname);
+ 
+       __set_errno (0);
++#ifdef GETCWD
++      while ((ret = GETCWD (dirname, path_max)) == NULL && errno == ERANGE)
++#else
+       while ((ret = getcwd (dirname, path_max)) == NULL && errno == ERANGE)
++#endif
+ 	{
+ 	  path_max += PATH_INCR;
+ 	  dirname = (char *) alloca (path_max + dirname_len);
+diff -Naur mc-4.5.4/slang/slgetkey.c mc-4.5.4.emx/slang/slgetkey.c
+--- mc-4.5.4/slang/slgetkey.c	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/slang/slgetkey.c	Fri Jan  1 20:31:26 1999
+@@ -26,7 +26,11 @@
+ # endif
+ #endif
+ 
+-#ifdef OS2_NT /* see the replacement in src/slint.c */
++#ifdef ALTERNATIVE_CONSOLE
++extern int(*os_init_key)(char *term);
++#endif
++
++#if defined OS2_NT || defined OS2EMX /* see the replacement in src/slint.c */
+ unsigned int SLang_getkey (void)
+ {
+    unsigned int imax;
+@@ -44,6 +48,9 @@
+    else if (0xFFFF == (ch = SLsys_getkey ())) return ch;
+    
+ #ifdef DEC_8BIT_HACK
++#ifdef OS2EMX /* os2 keyb */
++   if(os_init_key==0)
++#endif
+    if (ch & 0x80)
+      {
+ 	unsigned char i;
+@@ -89,7 +96,7 @@
+    SLang_ungetkey_string(&ch, 1);
+ }
+ 
+-#ifdef OS2_NT /* see the replacement in src/slint.c */
++#if defined OS2_NT || defined OS2EMX  /* see the replacement in src/slint.c */
+ int SLang_input_pending (int tsecs)
+ {
+    int n;
+diff -Naur mc-4.5.4/src/background.h mc-4.5.4.emx/src/background.h
+--- mc-4.5.4/src/background.h	Wed Dec 30 11:50:38 1998
++++ mc-4.5.4.emx/src/background.h	Fri Jan  1 20:58:20 1999
+@@ -4,7 +4,9 @@
+ /* Background code requires socketpair to be available */
+ /* Do not add the background code if it is not supported */
+ #ifdef USE_NETCODE
++#ifndef OS2EMX
+ #        define WITH_BACKGROUND
++#endif
+ #endif
+ 
+ /* Used for parent/child communication.  These are numbers that
+diff -Naur mc-4.5.4/src/chattrib.c mc-4.5.4.emx/src/chattrib.c
+--- mc-4.5.4/src/chattrib.c	Thu Jan  1 00:00:00 1970
++++ mc-4.5.4.emx/src/chattrib.c	Sat Jan  2 11:07:20 1999
+@@ -0,0 +1,408 @@
++/* Chattrib command  
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++
++*/
++
++#include <config.h>
++
++#include <string.h>
++#include <stdio.h>
++
++#include "tty.h"
++#include "mad.h"
++#include "util.h"
++#include "win.h"
++#include "color.h"
++#include "dlg.h"
++#include "widget.h"
++#include "dialog.h"	/* For do_refresh() */
++
++#include "dir.h"
++#include "panel.h"		/* Needed for the externs */
++#include "file.h"
++#include "main.h"
++
++#include "hetnet.h"
++#include "chattrib.h"
++
++static int single_set;
++struct Dlg_head *ch_dlg;
++
++#define PX		5
++#define PY		2
++
++#define FX		40
++#define FY		2
++
++#define BX		6
++#define BY		13
++
++#define TX		5
++#define TY		9
++
++#define ATTRIBUTES	4
++#define BUTTONS		6
++
++#define B_MARKED	B_USER
++#define B_ALL		B_USER+1
++#define B_SETMRK        B_USER+2
++#define B_CLRMRK        B_USER+3
++
++int     mode_change, need_update;
++int     c_file,      end_chattrib;
++
++umode_t and_mask,    or_mask,   c_stat;
++char    *c_fname,    *c_fown,   *c_fgrp, *c_fperm;
++int     c_fsize;
++
++static WLabel        *statl;
++static int           normal_color;
++static int           title_color;
++static int           selection_color;
++
++/* bsedos.h */
++static
++struct {
++    mode_t      mode;
++    char        *text;
++    int         selected;
++    WCheck      *check;
++} check_attr[ATTRIBUTES] = {
++
++    {	
++	MC_FILE_ARCHIVED, "Archive", 0, 0,
++    },
++    {
++	MC_FILE_READONLY, "Read Only", 0, 0,
++    },
++    {
++	MC_FILE_HIDDEN, "Hidden", 0, 0,
++    },
++    {
++	MC_FILE_SYSTEM, "System", 0, 0,
++    },
++};
++
++static
++struct {
++    int ret_cmd, flags, y, x;
++    char *text;
++} chattrib_but[BUTTONS] = {
++
++    {
++	B_CANCEL, NORMAL_BUTTON, 2, 33, "&Cancel",
++    },
++    {
++	B_ENTER, DEFPUSH_BUTTON, 2, 17, "&Set",
++    },
++    {
++	B_CLRMRK, NORMAL_BUTTON, 0, 42, "C&lear marked",
++    },
++    {
++	B_SETMRK, NORMAL_BUTTON, 0, 27, "S&et marked",
++    },
++    {
++	B_MARKED, NORMAL_BUTTON, 0, 12, "&Marked all",
++    },
++    {
++	B_ALL, NORMAL_BUTTON, 0, 0, "Set &all",
++    },
++};
++
++static void chattrib_toggle_select (void)
++{
++    int Id = ch_dlg->current->dlg_id - BUTTONS + single_set * 2;
++
++    attrset (COLOR_NORMAL);
++    check_attr[Id].selected ^= 1;
++
++    dlg_move (ch_dlg, PY + ATTRIBUTES - Id, PX + 1);
++    addch ((check_attr[Id].selected) ? '*' : ' ');
++    dlg_move (ch_dlg, PY + ATTRIBUTES - Id, PX + 3);
++}
++
++static void chattrib_refresh (void)
++{
++    attrset   (COLOR_NORMAL);
++    dlg_erase (ch_dlg);
++
++    draw_box (ch_dlg, 1, 2, 16 - single_set, 66);
++    draw_box (ch_dlg, PY, PX, ATTRIBUTES + 2, 33);
++    draw_box (ch_dlg, FY, FX, 10, 25);
++
++    dlg_move (ch_dlg, FY + 1, FX + 2);
++    addstr ("Name");
++    dlg_move (ch_dlg, FY + 3, FX + 2);
++    addstr ("Attributes (Hex)");
++    dlg_move (ch_dlg, FY + 5, FX + 2);
++    addstr ("Owner name");
++    dlg_move (ch_dlg, FY + 7, FX + 2);
++    addstr ("Group name");
++
++    attrset (title_color);
++    dlg_move (ch_dlg, 1, 27);
++    addstr (" Attrib command ");
++    dlg_move (ch_dlg, PY, PX + 1);
++    addstr (" Attributes ");
++    dlg_move (ch_dlg, FY, FX + 1);
++    addstr (" File ");
++
++    attrset (selection_color);
++
++    dlg_move (ch_dlg, TY, TX);
++    addstr ("Use SPACE to change an option,");
++    dlg_move (ch_dlg, TY + 1, TX);
++    addstr ("ARROW KEYS to move between options"); 
++    dlg_move (ch_dlg, TY + 2, TX);
++    addstr ("and T or INS to mark"); 
++
++}
++
++static int chattrib_callback (Dlg_head *h, int Par, int Msg)
++{
++    char buffer [10];
++
++    switch (Msg) {
++    case DLG_ACTION:
++	if (Par >= BUTTONS - single_set * 2){
++	    c_stat ^= check_attr[Par - BUTTONS + single_set * 2].mode;
++	    sprintf (buffer, "0x%02x", c_stat);
++	    label_set_text (statl, buffer);
++	    chattrib_toggle_select ();
++	    mode_change = 1;
++	}
++	break;
++
++    case DLG_KEY:
++	if ((Par == 'T' || Par == 't' || Par == KEY_IC) &&
++	    ch_dlg->current->dlg_id >= BUTTONS - single_set * 2) {
++	    chattrib_toggle_select ();
++	    if (Par == KEY_IC)
++		dlg_one_down (ch_dlg);
++	    return 1;
++	}
++	break;
++#ifndef HAVE_X
++    case DLG_DRAW:
++	chattrib_refresh ();
++	break;
++#endif
++    }
++    return 0;
++}
++
++static void init_chattrib (void)
++{
++    int i;
++
++    do_refresh ();
++    end_chattrib = c_file = need_update = 0;
++    single_set = (cpanel->marked < 2) ? 2 : 0;
++
++    if (use_colors){
++	normal_color = COLOR_NORMAL;
++	title_color  = COLOR_HOT_NORMAL;
++	selection_color = COLOR_NORMAL;
++    } else {
++	normal_color = NORMAL_COLOR;
++	title_color  = SELECTED_COLOR;
++	selection_color = SELECTED_COLOR;
++    }
++
++    ch_dlg = create_dlg (0, 0, 18 - single_set, 70, dialog_colors,
++			 chattrib_callback, "[Chattrib]", "chattrib", DLG_CENTER);
++			
++    x_set_dialog_title (ch_dlg, "Cattrib command");
++
++#define XTRACT(i) BY+chattrib_but[i].y-single_set, BX+chattrib_but[i].x, \
++     chattrib_but[i].ret_cmd, chattrib_but[i].flags, chattrib_but[i].text, 0, 0, NULL
++
++/*    tk_new_frame (ch_dlg, "b."); */
++    for (i = 0; i < BUTTONS; i++) {
++	if (i == 2 && single_set)
++	    break;
++	else
++	    add_widgetl (ch_dlg, button_new (XTRACT (i)), XV_WLAY_RIGHTOF);
++    }
++
++
++#define XTRACT2(i) 0, check_attr [i].text, NULL
++/*    tk_new_frame (ch_dlg, "c."); */
++    for (i = 0; i < ATTRIBUTES; i++) {
++	check_attr[i].check = check_new (PY + (ATTRIBUTES - i), PX + 2,
++					 XTRACT2 (i));
++	add_widget (ch_dlg, check_attr[i].check);
++    }
++}
++
++
++static void chattrib_done (void)
++{
++    if (need_update)
++	update_panels (UP_OPTIMIZE, UP_KEEPSEL);
++    repaint_screen ();
++}
++
++static
++char *next_file (void)
++{
++    while (!cpanel->dir.list[c_file].f.marked)
++	c_file++;
++
++    return cpanel->dir.list[c_file].fname;
++}
++
++
++static void do_chattrib (mode_t sf)
++{
++    sf &= and_mask;
++    sf |= or_mask;
++
++    set_attrib(cpanel->dir.list[c_file].fname, sf);
++
++    do_file_mark (cpanel, c_file, 0);
++}
++
++static void apply_mask (mode_t sf)
++{
++    char *fname;
++    mode_t sf_stat;
++
++    need_update = end_chattrib = 1;
++    do_chattrib (sf);
++
++    do {
++	fname = next_file ();
++	if ((sf_stat = get_attrib (fname)) < 0)
++	    break;
++
++	c_stat = sf_stat;
++	do_chattrib (c_stat);
++    } while (cpanel->marked);
++}
++
++
++void chattrib_cmd ()
++{
++    char buffer [10];
++    char *fname;
++    int i;
++    int attr;
++
++#ifdef OS2EMX
++  /* maybe function for "supported features" in all filesystems */
++    if(!fs_has_attrib(cpanel->cwd)) {
++	    message (1, _(" Oops... "),
++		     _(" I can't run the Attrib command on this fs "));
++            return;
++    }
++#endif
++
++    do {			/* do while any files remaining */
++	init_chattrib ();
++	if (cpanel->marked)
++	    fname = next_file ();	/* next marked file */
++	else
++	    fname = selection (cpanel)->fname;	/* single file */
++
++          /* get status of file */
++        if(mc_getattrib(fname,&attr)<0)
++	    break;
++
++	c_stat = attr;
++	mode_change = 0;	/* clear changes flag */
++
++	/* set check buttons */
++	for (i = 0; i < ATTRIBUTES; i++){
++	    check_attr[i].check->state = (c_stat & check_attr[i].mode) ? 1 : 0;
++	    check_attr[i].selected = 0;
++	}
++
++/*	tk_new_frame (ch_dlg, "l."); */
++	/* Set the labels */
++	c_fname = name_trunc (fname, 21);
++	add_widget (ch_dlg, label_new (FY+2, FX+2, c_fname, NULL));
++	c_fown = "unknown";
++	add_widget (ch_dlg, label_new (FY+6, FX+2, c_fown, NULL));
++	c_fgrp = "unknown";
++	add_widget (ch_dlg, label_new (FY+8, FX+2, c_fgrp, NULL));
++	sprintf (buffer, "0x%02x", c_stat);
++	statl = label_new (FY+4, FX+2, buffer, NULL);
++	add_widget (ch_dlg, statl);
++/*	tk_end_frame (); */
++	
++	run_dlg (ch_dlg);	/* retrieve an action */
++	
++	/* do action */
++	switch (ch_dlg->ret_value){
++	case B_ENTER:
++	    if (mode_change)mc_setattrib (fname, c_stat);  /*.ado */
++	    need_update = 1;
++	    break;
++	
++	case B_CANCEL:
++	    end_chattrib = 1;
++	    break;
++	
++	case B_ALL:
++	case B_MARKED:
++	    and_mask = or_mask = 0;
++	    and_mask = ~and_mask;
++
++	    for (i = 0; i < ATTRIBUTES; i++) {
++		if (check_attr[i].selected || ch_dlg->ret_value == B_ALL)
++		    if (check_attr[i].check->state & C_BOOL)
++			or_mask |= check_attr[i].mode;
++		    else
++			and_mask &= ~check_attr[i].mode;
++	    }
++
++	    apply_mask (attr);
++	    break;
++	
++	case B_SETMRK:
++	    and_mask = or_mask = 0;
++	    and_mask = ~and_mask;
++
++	    for (i = 0; i < ATTRIBUTES; i++) {
++		if (check_attr[i].selected)
++		    or_mask |= check_attr[i].mode;
++	    }
++
++	    apply_mask (attr);
++	    break;
++	case B_CLRMRK:
++	    and_mask = or_mask = 0;
++	    and_mask = ~and_mask;
++
++	    for (i = 0; i < ATTRIBUTES; i++) {
++		if (check_attr[i].selected)
++		    and_mask &= ~check_attr[i].mode;
++	    }
++
++	    apply_mask (attr);
++	    break;
++	}
++
++	if (cpanel->marked && ch_dlg->ret_value!=B_CANCEL) {
++	    do_file_mark (cpanel, c_file, 0);
++	    need_update = 1;
++	}
++	destroy_dlg (ch_dlg);
++    } while (cpanel->marked && !end_chattrib);
++    chattrib_done ();
++}
++
+diff -Naur mc-4.5.4/src/chattrib.h mc-4.5.4.emx/src/chattrib.h
+--- mc-4.5.4/src/chattrib.h	Thu Jan  1 00:00:00 1970
++++ mc-4.5.4.emx/src/chattrib.h	Mon Dec 28 07:54:14 1998
+@@ -0,0 +1,7 @@
++#ifndef __CHATTRIB_H
++#define __CHATTRIB_H
++
++void chattrib_cmd (void);
++
++
++#endif
+\ No newline at end of file
+diff -Naur mc-4.5.4/src/chmod.c mc-4.5.4.emx/src/chmod.c
+--- mc-4.5.4/src/chmod.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/chmod.c	Sat Jan  2 11:07:04 1999
+@@ -313,7 +313,17 @@
+     int i;
+     struct stat sf_stat;
+ 
+-#if 0
++
++#ifdef OS2EMX
++  /* maybe function for "supported features" in all filesystems */
++    if(!fs_has_chmod(cpanel->cwd)) {
++	    message (1, _(" Oops... "),
++		     _(" I can't run the Chmod command on this fs "));
++            return;
++    }
++#endif
++
++#if (0)  
+     /* Don't do things like this: you do not want to enumerate all
+        filesystems that can not support chmod, here. */
+     if (!vfs_current_is_local ()) {
+@@ -426,6 +436,8 @@
+     chmod_done ();
+ }
+ 
++#ifndef OS2EMX  /* no link chown.o achown.o */
++
+ void ch1_cmd (int id)
+ {
+   if (advanced_chfns)
+@@ -442,3 +454,4 @@
+       chown_cmd ();
+ }
+ 
++#endif
+\ No newline at end of file
+diff -Naur mc-4.5.4/src/command.c mc-4.5.4.emx/src/command.c
+--- mc-4.5.4/src/command.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/command.c	Fri Jan  1 21:15:16 1999
+@@ -188,7 +188,16 @@
+ 	cmd = input_w (cmdline)->buffer;
+ 	while (*cmd == ' ' || *cmd == '\t' || *cmd == '\n')
+ 	    cmd++;
+-
++#if defined LOCAL_DRIVES
++        if (cmd[1] == ':' && (cmd[2] == 0 || isspace (cmd[2])) &&
++            toupper (cmd[0]) >= 'A' && toupper (cmd[0]) <= 'Z') {
++          char chg[6] = "cd X:";
++          chg[3] = cmd[0];
++          do_cd_command (chg);
++          new_input (input_w (cmdline));
++          return MSG_HANDLED;
++        }
++#endif
+ 	if (strncmp (cmd, "cd ", 3) == 0 || strcmp (cmd, "cd") == 0){
+ 	    do_cd_command (cmd);
+ 	    new_input (input_w (cmdline));
+diff -Naur mc-4.5.4/src/complete.c mc-4.5.4.emx/src/complete.c
+--- mc-4.5.4/src/complete.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/complete.c	Fri Jan  1 21:16:20 1999
+@@ -28,6 +28,9 @@
+ #ifdef HAVE_UNISTD_H
+ #   include <unistd.h>
+ #endif
++#ifdef OS2EMX  /* for <dirent.h> */
++#include<sys/types.h>
++#endif
+ 
+ /* unistd.h defines _POSIX_VERSION on POSIX.1 systems. */
+ #if defined(HAVE_DIRENT_H) || defined(_POSIX_VERSION)
+diff -Naur mc-4.5.4/src/drive.c mc-4.5.4.emx/src/drive.c
+--- mc-4.5.4/src/drive.c	Thu Jan  1 00:00:00 1970
++++ mc-4.5.4.emx/src/drive.c	Mon Dec 28 07:54:16 1998
+@@ -0,0 +1,181 @@
++/* Ch-Drive command  
++   
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++   
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  
++   
++   */
++
++
++#include <config.h>
++#include <string.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <ctype.h>
++#include "tty.h"
++#include "mad.h"
++#include "util.h"
++#include "win.h"
++#include "color.h"
++#include "dlg.h"
++#include "widget.h"
++#include "dialog.h"
++#include "dir.h"
++#include "panel.h"
++#include "main.h"
++#include "cmd.h"
++
++
++struct Dlg_head *drive_dlg;
++WPanel *this_panel;
++
++static int drive_dlg_callback (Dlg_head *h, int Par, int Msg);
++static void drive_dlg_refresh (void);
++static void drive_cmd(void);
++
++#define B_DRIVE_BASE 100
++#define BUTW      5
++#define BUTPR     5
++#define BUTH      2
++
++#define NBX (nDrivesAvail>=BUTPR?BUTPR:nDrivesAvail)
++
++static void drive_cmd()			
++{
++    int  i, nNewDrive, nDrivesAvail;
++    char szTempBuf[7], szDrivesAvail[27*4], *p;
++
++	/* Dialogbox position */
++	int  x_pos;
++	int  y_pos;
++	int  y_height;
++	int  x_width;
++
++	int  m_drv;
++
++    /* Get drives name and count */
++    nDrivesAvail=get_logical_drives((int*)szDrivesAvail);
++    p=szDrivesAvail+4*nDrivesAvail;
++
++    /* Create Dialog */
++    do_refresh ();
++	
++    m_drv = nDrivesAvail;
++    /* Center on x, relative to panel */
++	y_height = 7-BUTH+BUTH*(m_drv/BUTPR+1);
++	x_width  = NBX * BUTW + 8;
++    
++    x_pos = this_panel->widget.x + 
++             (this_panel->widget.cols - x_width)/2;
++    y_pos = (LINES-y_height)/2-2;
++
++    drive_dlg = create_dlg (y_pos, x_pos, y_height, x_width, dialog_colors,
++	drive_dlg_callback, "[ChDrive]", "drive", DLG_NONE);
++
++    x_set_dialog_title (drive_dlg, "Change Drive");
++
++
++    /* Add a button for each drive */
++    for (i = 0; i < m_drv; i++) {
++        int J=m_drv-i-1;
++    	p -= 4;
++    	sprintf (szTempBuf, "&%c", *p);
++	    add_widgetl(drive_dlg,
++		button_new (3+2*(J/BUTPR), J%BUTPR*BUTW+4, 
++                B_DRIVE_BASE+m_drv-i-1,
++		NORMAL_BUTTON, szTempBuf, 0, NULL, NULL),
++		XV_WLAY_RIGHTOF);
++    }
++
++    run_dlg(drive_dlg);   
++    /* do action */
++    if (drive_dlg->ret_value != B_CANCEL) {
++	int  errocc = 0; /* no error */
++	char drvLetter;
++	nNewDrive = drive_dlg->ret_value - B_DRIVE_BASE;
++	drvLetter =  (char) *(szDrivesAvail + (nNewDrive*4));
++
++        if(chg_drive(drvLetter)!=drvLetter)
++		errocc = 1;
++	else {
++#ifdef GETCWD
++		GETCWD (this_panel->cwd, sizeof (this_panel->cwd)-2);
++#else
++		getcwd (this_panel->cwd, sizeof (this_panel->cwd)-2);
++#endif
++		if (toupper(drvLetter) == toupper(*(this_panel->cwd))) {
++			clean_dir (&this_panel->dir, this_panel->count);
++			this_panel->count = do_load_dir(&this_panel->dir,
++				this_panel->sort_type,
++				this_panel->reverse,
++				this_panel->case_sensitive,
++				this_panel->filter);
++			this_panel->top_file = 0;
++			this_panel->selected = 0;
++			this_panel->marked = 0;
++			this_panel->total = 0;
++			show_dir(this_panel);
++			reread_cmd();
++		} else
++			errocc = 1;
++	}
++    if (errocc)
++	    message (1, " Error ", " Can't access drive %c: ",
++		*(szDrivesAvail+(nNewDrive*4)) );
++    }
++    destroy_dlg (drive_dlg);
++    repaint_screen ();
++}
++
++void drive_cmd_a()
++{
++    this_panel = left_panel;
++    drive_cmd();
++}
++
++void drive_cmd_b()
++{                                  
++    this_panel = right_panel;
++    drive_cmd();
++}
++
++void drive_chg(WPanel *panel)
++{
++    this_panel  = panel;
++    drive_cmd();
++}
++
++static int drive_dlg_callback (Dlg_head *h, int Par, int Msg)
++{
++    switch (Msg) {
++#ifndef HAVE_X
++    case DLG_DRAW:
++	drive_dlg_refresh ();
++	break;
++#endif
++    }
++    return 0;
++}
++
++static void drive_dlg_refresh (void)
++{
++    attrset (dialog_colors[0]);
++    dlg_erase (drive_dlg);
++    draw_box (drive_dlg, 1, 1, drive_dlg->lines-2, drive_dlg->cols-2);
++
++    attrset (dialog_colors[2]);
++    dlg_move (drive_dlg, 1, drive_dlg->cols/2 - 7);
++    addstr (" Change Drive ");
++}
++
++
+diff -Naur mc-4.5.4/src/drive.h mc-4.5.4.emx/src/drive.h
+--- mc-4.5.4/src/drive.h	Thu Jan  1 00:00:00 1970
++++ mc-4.5.4.emx/src/drive.h	Mon Dec 28 07:54:16 1998
+@@ -0,0 +1,8 @@
++void drive_cmd_a(WPanel *);
++void drive_cmd_b(WPanel *);
++void drive_chg(WPanel *panel);
++
++#include "hetnet.h"
++
++
++
+diff -Naur mc-4.5.4/src/ext.c mc-4.5.4.emx/src/ext.c
+--- mc-4.5.4/src/ext.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/ext.c	Sun Jan  3 19:47:28 1999
+@@ -135,7 +135,13 @@
+     /* Note: this has to be done after the getlocalcopy call,
+      * since it uses tmpnam as well
+      */
+-    file_name = strdup (tmpnam (NULL));
++#ifdef OS2EMX
++stdlog("US:%i\n",is_unix_shell());
++    if(!is_unix_shell())
++        file_name = strdup (tmpnam_ext(".cmd"));
++    else
++#endif
++        file_name = strdup (tmpnam (NULL));
+ 
+     if ((cmd_file_fd = open (file_name, O_RDWR | O_CREAT | O_TRUNC | O_EXCL, 0600)) == -1){
+ 	message (1, MSG_ERROR, _(" Can't create temporary command file \n %s "),
+@@ -143,7 +149,12 @@
+ 	return;
+     }
+     cmd_file = fdopen (cmd_file_fd, "w");
+-    fprintf (cmd_file, "#!%s\n", shell);
++#ifdef OS2EMX
++    if(!is_unix_shell())
++        fprintf (cmd_file, "@rem %s\n", shell);
++    else 
++#endif
++       fprintf (cmd_file, "#!%s\n", shell);
+ 	     
+     prompt [0] = 0;
+     for (;*data && *data != '\n'; data++){
+@@ -162,6 +173,9 @@
+ 		    free (file_name);
+ 		    return;
+ 		}
++#ifdef OS2EMX
++                os2_canon_str(parameter);
++#endif
+ 		fputs (parameter, cmd_file);
+ 		written_nonspace = 1;
+ 		free (parameter);
+@@ -191,6 +205,9 @@
+ 	    	    p = buffer;
+ 	    	    data += i - 1;
+ 		} else if ((i = check_format_var (data, &v)) > 0 && v){
++#ifdef OS2EMX
++                    os2_canon_str(v);
++#endif
+ 		    fputs (v, cmd_file);
+ 		    free (v);
+ 		    data += i;
+@@ -216,6 +233,9 @@
+ 			text = quote_block (quote_func, drops);
+ 		    } else
+ 		        text = expand_format (*data, !is_cd);
++#ifdef OS2EMX
++                    os2_canon_str(text);
++#endif
+ 		    if (!is_cd)
+ 		        fputs (text, cmd_file);
+ 		    else {
+diff -Naur mc-4.5.4/src/features.inc mc-4.5.4.emx/src/features.inc
+--- mc-4.5.4/src/features.inc	Wed Dec 30 11:50:38 1998
++++ mc-4.5.4.emx/src/features.inc	Fri Jan  1 21:22:28 1999
+@@ -80,7 +80,7 @@
+ ;
+ 
+ static const int status_mouse_support = 
+-#ifdef HAVE_LIBGPM
++#if defined HAVE_LIBGPM || defined OS2EMX
+     1;
+ #else
+     0;
+diff -Naur mc-4.5.4/src/file.c mc-4.5.4.emx/src/file.c
+--- mc-4.5.4/src/file.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/file.c	Fri Jan  1 21:23:44 1999
+@@ -147,6 +147,10 @@
+  * preserve_uidgid = preserve && uid == 0 */
+ int file_mask_preserve_uidgid = 0;
+ 
++#ifdef OS2EMX  /* !root -> disable chown */
++#define geteuid() (1)
++#endif
++
+ /* The bits to preserve in created files' modes on file copy */
+ int file_mask_umask_kill = 0777777;
+ 
+diff -Naur mc-4.5.4/src/hetnet.c mc-4.5.4.emx/src/hetnet.c
+--- mc-4.5.4/src/hetnet.c	Thu Jan  1 00:00:00 1970
++++ mc-4.5.4.emx/src/hetnet.c	Sat Jan  2 14:22:54 1999
+@@ -0,0 +1,142 @@
++#include<stdlib.h>
++#include<stdio.h>
++#include<string.h>
++#include<config.h>
++#include "hetnet.h"
++#include "main.h"
++
++static
++char *remote_host(char *path)
++{ char *rc="unknown",buf[256],*p,*q,*r;
++  strcpy(buf,path);
++  p=strchr(buf,'#');
++  if(p){ q=strchr(p,'/');
++         if(q){ *q=0;
++                r=strrchr(p,'@');
++                if(!r)r=strchr(p,':');
++                if(r){ rc=r+1;
++                       r=strchr(rc,':'); if(r)*r=0; /* host:port */
++                     }
++              }  
++       }
++  return strdup(rc);
++}
++
++static
++struct os_info { char *host;
++                 char *os;
++               } *OS;
++
++int add_host_os(char *h, char *o)
++{ int n=0;
++  if(OS)while(OS[n].host)
++     { if(!strcmp(h,OS[n].host))return -1; 
++       n++; 
++     }
++  OS=(struct os_info*)realloc(OS,(n+2)*sizeof(struct os_info));
++  OS[n].host=strdup(h); OS[n].os=strdup(o); n++;
++  OS[n].host=0;         OS[n].os=0;
++  return n;
++}
++
++char *remote_os(char *path)
++{ char *host;
++  struct os_info *os;
++  if(!OS)
++    { FILE *F;
++      char file[256];
++      int n=0;
++      sprintf(file,"%s/mc.hst",mc_home);
++      F=fopen(file,"rt");
++      if(F){ char buf[256];
++             while(fgets(buf,256,F))
++               { char hs[256],os[32];
++                 if(sscanf(buf,"%s %s",hs,os)==2)add_host_os(hs,os); 
++               }
++             fclose(F);
++           } 
++      add_host_os("UNKNOWN","UNKNOWN");    
++    }
++  host=remote_host(path);
++  os=OS;
++  while(os->host) { if(!strcmp(os->host,host))
++                       { free(host);   
++                         return strdup(os->os);
++                       }
++                    os++;
++                  }
++  free(host); 
++  return strdup("UNKNOWN");
++} 
++
++int os_has_chown(char *os)
++/*----------------------*/
++{ if(!strcasecmp(os,"OS/2"))return 0;
++  return 1;
++}
++
++int os_has_chmod(char *os)
++/*-----------------------*/
++{ if(!strcasecmp(os,"OS/2"))return 0;
++  return 1;
++}
++
++int os_has_attrib(char *os)
++/*------------------------*/
++{ if(!strcasecmp(os,"OS/2"))return 1;
++  return 0;
++}
++
++
++
++int fs_has_chmod(char *path)
++/*------------------------*/
++{ int rc;
++  char *p;
++  if((p=strchr(path,'#'))!=0){ 
++      if(!strncmp(p,"#ftp:",5)||!strncmp(p,"#mc:",4)){
++          char *os = (char *) remote_os (path);
++          rc=os_has_chmod(os); 
++          free (os);
++      } else
++      rc = 0; 
++  }
++  else 
++     rc=os_has_chmod(OS_INFO);  /* compiled local os */
++  return rc;
++}  
++
++int fs_has_attrib(char *path)
++/*--------------------------*/
++{ int rc=0;
++  char *p;
++  if((p=strchr(path,'#'))!=0){ 
++      if(!strncmp(p,"#mc:",4)){
++          char *os = (char *) remote_os (path);
++          rc=os_has_attrib(os); 
++          free (os);
++      } else
++      rc = 0; 
++  }
++  else 
++     rc=os_has_attrib(OS_INFO);  /* compiled local os */
++  return rc;
++}  
++
++int fs_has_chown(char *path)
++/*--------------------------*/
++{ int rc=0;
++  char *p;
++  if((p=strchr(path,'#'))!=0){ 
++      if(!strncmp(p,"#mc:",4)){
++          char *os = (char *) remote_os (path);
++          rc=os_has_chown(os); 
++          free (os);
++      } else
++      rc = 0; 
++  }
++  else 
++     rc=os_has_chown(OS_INFO);  /* compiled local os */
++  return rc;
++}  
++
+diff -Naur mc-4.5.4/src/hetnet.h mc-4.5.4.emx/src/hetnet.h
+--- mc-4.5.4/src/hetnet.h	Thu Jan  1 00:00:00 1970
++++ mc-4.5.4.emx/src/hetnet.h	Sat Jan  2 14:22:16 1999
+@@ -0,0 +1,47 @@
++#ifndef __HETNET_H
++#define __HETNET_H
++
++/* required function for heterohenous network */
++
++int  get_drive (void);
++int  chg_drive (int drive);   /* 'A','B'...  return: new current drive */
++int  get_logical_drives (int *drives_avail);
++
++
++/* linux flags as standard */
++#define MC_O_RDONLY	    00
++#define MC_O_WRONLY	    01
++#define MC_O_RDWR	    02
++#define MC_O_CREAT	  0100	
++#define MC_O_EXCL         0200	
++#define MC_O_NOCTTY	  0400	
++#define MC_O_TRUNC	 01000	
++#define MC_O_APPEND	 02000
++#define MC_O_NDELAY	 04000
++#define MC_O_SYNC	010000
++
++unsigned flags_to_mc (unsigned flags);
++unsigned flags_from_mc (unsigned flags);
++
++/* os/2 attributes as standard */
++#define MC_FILE_READONLY		0x0001
++#define MC_FILE_HIDDEN			0x0002
++#define MC_FILE_SYSTEM			0x0004
++#define MC_FILE_ARCHIVED		0x0020
++
++int get_attrib (char *filename);                 /* -1..error */
++int set_attrib (char *filename, unsigned attr);  /* -1..error */
++
++char *remote_os(char *path);
++
++int add_host_os   (char *h, char *o);
++
++int os_has_chown  (char *os);
++int os_has_chmode (char *os);
++int os_has_attrib (char *os);
++
++#ifndef OS_INFO
++#define OS_INFO "UNKNOWN"
++#endif
++
++#endif /* __HETNET_H */
+diff -Naur mc-4.5.4/src/key.c mc-4.5.4.emx/src/key.c
+--- mc-4.5.4/src/key.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/key.c	Fri Jan  1 21:28:32 1999
+@@ -92,6 +92,13 @@
+ static int disabled_channels = 0; /* Disable channels checking */
+ int xgetch_second (void);
+ 
++#ifdef ALTERNATIVE_CONSOLE  
++int  (*os_init_key)(char *term); /* 0..continue standard init_key */
++int  (*os_get_key_code)(int no_delay);
++int  (*os_get_event)(Gpm_Event *event, int redo_event, int block);
++int  (*os_get_modifier)();
++#endif 
++
+ #ifndef PORT_HAS_FILE_HANDLERS
+ /* File descriptor monitoring add/remove routines */
+ typedef struct SelectList {
+@@ -236,6 +243,10 @@
+ {
+ #ifndef HAVE_X
+     char *term = (char *) getenv ("TERM");
++
++#ifdef ALTERNATIVE_CONSOLE  
++    if (os_init_key)if(os_init_key(term))return;
++#endif 
+     
+     /* This has to be the first define_sequence */
+     /* So, we can assume that the first keys member has ESC */
+@@ -447,6 +458,10 @@
+     static key_def *this = NULL, *parent;
+     static struct timeval esctime = { -1, -1 };
+     static int lastnodelay = -1;
++
++#ifdef ALTERNATIVE_CONSOLE  
++    if (os_get_key_code)return os_get_key_code(no_delay);
++#endif 
+     
+     if (no_delay != lastnodelay) {
+         this = NULL;
+@@ -690,6 +705,10 @@
+     struct timeval *time_addr = NULL;
+     static int dirty = 3;
+ 
++#ifdef ALTERNATIVE_CONSOLE  
++    if (os_get_event)return os_get_event(event,redo_event,block);
++#endif 
++
+     if ((dirty == 3) || is_idle ()){
+ 	mc_refresh ();
+ 	doupdate ();
+@@ -977,14 +996,18 @@
+ 
+     return (int) modifiers;
+ #else
++#ifdef ALTERNATIVE_CONSOLE  
++    return os_get_modifier?os_get_modifier():0;
++#else
+     return 0;
+ #endif
++#endif
+ }
+ 
+ int
+ ctrl_pressed ()
+ {
+-#ifdef __linux__
++#if defined __linux__ || defined ALTERNATIVE_CONSOLE
+     if (get_modifier () & CONTROL_PRESSED)
+ 	return 1;
+ #endif
+diff -Naur mc-4.5.4/src/key.h mc-4.5.4.emx/src/key.h
+--- mc-4.5.4/src/key.h	Wed Dec 30 11:50:38 1998
++++ mc-4.5.4.emx/src/key.h	Fri Jan  1 21:28:56 1999
+@@ -88,4 +88,11 @@
+     void application_keypad_mode (void);
+ #endif
+ 
++#ifdef ALTERNATIVE_CONSOLE
++void OS_Setup_Console(char *termvalue, int kbd, int mouse); 
++extern int (*os_init_key)(char *term); /* 0..continue standard procedure */
++extern int (*os_get_key_code)(int no_delay);
++extern int (*os_get_event)(Gpm_Event *event, int redo_event, int block);
++#endif
++
+ #endif	/* __KEY_H */
+diff -Naur mc-4.5.4/src/keys.h mc-4.5.4.emx/src/keys.h
+--- mc-4.5.4/src/keys.h	Wed Dec 30 11:50:38 1998
++++ mc-4.5.4.emx/src/keys.h	Sat Jan  2 13:38:26 1999
+@@ -11,5 +11,8 @@
+ #define KEY_KP_SUBTRACT	4002
+ #define KEY_KP_MULTIPLY	4003
+ 
+-
++#ifdef OS2EMX  /* 0x200 alt */
++#define KEY_F(x) (0x400|(unsigned)x)
++#else
+ #define KEY_F(x) 1000+x
++#endif
+diff -Naur mc-4.5.4/src/learn.c mc-4.5.4.emx/src/learn.c
+--- mc-4.5.4/src/learn.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/learn.c	Fri Jan  1 21:30:06 1999
+@@ -346,6 +346,14 @@
+     alternate_plus_minus = 1; /* don't translate KP_ADD, KP_SUBTRACT and
+                                  KP_MULTIPLY to '+', '-' and '*' in
+                                  correct_key_code */
++#ifdef ALTERNATIVE_CONSOLE
++    if (os_get_key_code) {
++	    message (1, _(" Oops... "),
++		     _(" I can run the Learn keys only on \"unix\" console or \"xterm\". "));
++            return;
++    }
++#endif
++
+ #ifndef HAVE_X
+     application_keypad_mode ();
+ #endif
+diff -Naur mc-4.5.4/src/main.c mc-4.5.4.emx/src/main.c
+--- mc-4.5.4/src/main.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/main.c	Sat Jan  2 13:22:10 1999
+@@ -128,7 +128,11 @@
+ #include "chmod.h"
+ #include "chown.h"
+ 
+-#ifdef OS2_NT
++#ifdef HETER_NET
++#include "chattrib.h"
++#endif
++
++#if defined (OS2_NT)  || defined (LOCAL_DRIVES)
+ #    include <io.h>
+ #    include <drive.h>
+ #endif
+@@ -226,6 +230,10 @@
+ /* If true message "The shell is already running a command" never */
+ int force_subshell_execution = 0;
+ 
++#ifdef OS2EMX
++int disable_os_kbd = 0;
++#endif
++
+ /* If true program softkeys (HP terminals only) on startup and after every 
+    command ran in the subshell to the description found in the termcap/terminfo 
+    database */
+@@ -1215,7 +1223,7 @@
+     { ' ', N_("FT&P link..."),              'P', ftplink_cmd },
+ #endif
+     { ' ', "", ' ', 0 },
+-#ifdef OS2_NT
++#if defined (OS2_NT)  || defined (LOCAL_DRIVES)
+     { ' ', N_("&Drive...       M-d"),       'D', drive_cmd_a },
+ #endif
+     { ' ', N_("&Rescan         C-r"),       'R', reread_cmd }
+@@ -1236,7 +1244,7 @@
+     { ' ', N_("FT&P link..."),           'P', ftplink_cmd },
+ #endif
+     { ' ', "", ' ', 0 },
+-#ifdef OS2_NT
++#if defined (OS2_NT)  || defined (LOCAL_DRIVES)
+     { ' ', N_("&Drive...       M-d"),    'D', drive_cmd_b },
+ #endif
+     { ' ', N_("&Rescan         C-r"),    'R', reread_cmd }
+@@ -1246,11 +1254,18 @@
+     { ' ', N_("&User menu          F2"), 'U', user_menu_cmd },
+     { ' ', N_("&View               F3"), 'V', view_cmd },
+     { ' ', N_("Vie&w file...         "), 'W', view_file_cmd },
++#ifdef OS2EMX
++    { ' ', N_("&Filtered view        "), 'F', filtered_view_cmd },
++#else
+     { ' ', N_("&Filtered view     M-!"), 'F', filtered_view_cmd },
++#endif
+     { ' ', N_("&Edit               F4"), 'E', edit_cmd },
+     { ' ', N_("&Copy               F5"), 'C', copy_cmd },
++#ifdef OS2EMX
++    { ' ', N_("&Attrib               "), 'A', chattrib_cmd },
++#endif
+     { ' ', N_("c&Hmod           C-x c"), 'H', chmod_cmd },
+-#ifndef OS2_NT				       
++#if !defined (OS2_NT) && !defined OS2EMX				       
+     { ' ', N_("&Link            C-x l"), 'L', link_cmd },
+     { ' ', N_("&SymLink         C-x s"), 'S', symlink_cmd },
+     { ' ', N_("edit s&Ymlink  C-x C-s"), 'Y', edit_symlink_cmd },
+@@ -1263,7 +1278,11 @@
+     { ' ', N_("&Quick cd          M-c"), 'Q', quick_cd_cmd },
+     { ' ', "", ' ', 0 },
+     { ' ', N_("select &Group      M-+"), 'G', select_cmd },
++#ifdef OS2EMX
++    { ' ', N_("u&Nselect group    M--"),'N', unselect_cmd },
++#else
+     { ' ', N_("u&Nselect group    M-\\"),'N', unselect_cmd },
++#endif
+     { ' ', N_("reverse selec&Tion M-*"), 'T', reverse_selection_cmd },
+     { ' ', "", ' ', 0 },
+     { ' ', N_("e&Xit              F10"), 'X', (callfn) quit_cmd }
+@@ -1278,7 +1297,11 @@
+ #ifndef HAVE_GNOME
+     { ' ', N_("&Directory tree"),               'D', tree_box },
+ #endif
++#ifdef OS2EMX
++    { ' ', N_("&Find file            M-x"),     'F', find_cmd },
++#else
+     { ' ', N_("&Find file            M-?"),     'F', find_cmd },
++#endif
+     { ' ', N_("s&Wap panels          C-u"),     'W', swap_cmd },
+     { ' ', N_("switch &Panels on/off C-o"),     'P', view_other_cmd },
+     { ' ', N_("&Compare directories  C-x d"),   'C', compare_dirs_cmd },
+@@ -1639,7 +1662,7 @@
+     if (console_flag && !use_subshell)
+ 	restore_console ();
+ 
+-#ifndef OS2_NT
++#if !defined (OS2_NT) && !defined OS2EMX
+     {
+ 	struct sigaction sigtstp_action;
+ 	
+@@ -1692,7 +1715,7 @@
+     { XCTRL('t'),   copy_other_tagged },
+ #endif
+     { 'c',          chmod_cmd },
+-#ifndef OS2_NT
++#if !defined (OS2_NT) && !defined OS2EMX
+     { 'o',          chown_cmd },
+     { 'l',          link_cmd },
+     { XCTRL('l'),   other_symlink_cmd },
+@@ -1747,11 +1770,15 @@
+     { XCTRL('z'), suspend_cmd },
+ #endif
+     /* The filtered view command */
++#ifndef OS2EMX
+     { ALT('!'),   filtered_view_cmd_cpanel },
+-    
++#endif    
+     /* Find file */
++#ifdef OS2EMX
++    { ALT('x'),	  find_cmd },
++#else
+     { ALT('?'),	  find_cmd },
+-	
++#endif	
+     /* Panel refresh */
+     { XCTRL('r'), reread_cmd },
+ 
+@@ -1909,7 +1936,7 @@
+ }
+ 
+ /* In OS/2 and Windows NT people want to actually type the '\' key frequently */
+-#ifdef OS2_NT
++#if defined (OS2_NT) || defined (OS2EMX)
+ #   define check_key_backslash(x) 0
+ #else
+ #   define check_key_backslash(x) ((x) == '\\')
+@@ -2233,7 +2260,11 @@
+ #ifndef HAVE_X
+     fprintf (stderr,
+ 	    _("with mouse support on xterm%s.\n"),
++#ifdef OS2EMX
++	     status_mouse_support ? _(" and the OS/2 console") : "");
++#else
+ 	     status_mouse_support ? _(" and the Linux console") : "");
++#endif
+ #endif /* HAVE_X */
+ 
+     fprintf (stderr, features);
+@@ -2361,6 +2392,10 @@
+ static void
+ sigchld_handler_no_subshell (int sig)
+ {
++#ifdef OS2EMX
++  return;
++#else
++
+ #ifndef HAVE_X
+     int pid, status;
+ 
+@@ -2393,11 +2428,15 @@
+ 
+     /* If we get here, some other child exited; ignore it */
+ #endif /* ! HAVE_X  */
++#endif /*OS2EMX*/
+ }
+ 
+ void
+ init_sigchld (void)
+ {
++#ifdef OS2EMX
++  return;
++#else
+     struct sigaction sigchld_action;
+ 
+     sigchld_action.sa_handler =
+@@ -2415,6 +2454,7 @@
+ #endif
+ 
+     sigaction (SIGCHLD, &sigchld_action, NULL);
++#endif /* OS2EMX */
+ }	
+ 
+ #endif /* _OS_NT, __os2__, UNIX */
+@@ -2447,6 +2487,9 @@
+     "-d, --nomouse      Disable mouse support.\n"
+     "-f, --libdir       Print configured paths.\n"
+     "-h, --help         Shows this help message.\n"
++#ifdef OS2EMX
++    "-K, --uxconsole    Use \"unix\" console, disable mouse support.\n" 
++#endif
+     "-k, --resetsoft    Reset softkeys (HP terminals only) to their terminfo/termcap\n"
+     "                   default.\n"
+     "-P, --printwd      At exit, print the last working directory.\n"
+@@ -2641,6 +2684,9 @@
+     { "forceexec", 	'r', POPT_ARG_NONE, 	NULL, 			 'r' },
+ #endif
+     { "printwd", 	'P', POPT_ARG_NONE, 	&print_last_wd, 	  0 },
++#ifdef OS2EMX
++    { "uxconsole",      'K', POPT_ARG_NONE,     &disable_os_kbd,          0 },    
++#endif
+     { "resetsoft", 	'k', POPT_ARG_NONE, 	&reset_hp_softkeys, 	  0 },
+     { "slow", 's', POPT_ARG_NONE, 		&slow_terminal, 	  0 },
+ #if defined(HAVE_SLANG) && !defined(OS2_NT)
+@@ -2867,6 +2913,16 @@
+     SLtt_Ignore_Beep = 1;
+ #endif
+ #endif
++
++#ifdef ALTERNATIVE_CONSOLE
++
++#ifndef HAVE_GNOME
++    handle_args (argc, argv);
++#endif
++    OS_Setup_Console(getenv ("TERM"),!disable_os_kbd,use_mouse_p); 
++    init_key ();
++
++#else
+     
+     /* NOTE: This has to be called before slang_init or whatever routine
+        calls any define_sequence */
+@@ -2875,7 +2931,7 @@
+ #ifndef HAVE_GNOME
+     handle_args (argc, argv);
+ #endif
+-    
++#endif    
+     /* Used to report the last working directory at program end */
+     if (print_last_wd){
+ #ifndef OS2_NT	
+@@ -2992,6 +3048,10 @@
+ #   endif
+ 	    prompt = (geteuid () == 0) ? "# " : "$ ";
+ 
++#ifdef OS2EMX
++    OS_adjust();
++#endif
++
+     /* Program main loop */
+     do_nc ();
+     
+@@ -3017,7 +3077,7 @@
+         numeric_keypad_mode ();
+ #   endif
+ 
+-#ifndef OS2_NT
++#if !defined OS2_NT && !defined OS2EMX
+     signal (SIGCHLD, SIG_DFL);  /* Disable the SIGCHLD handler */
+ #endif
+     
+diff -Naur mc-4.5.4/src/screen.c mc-4.5.4.emx/src/screen.c
+--- mc-4.5.4/src/screen.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/screen.c	Fri Jan  1 21:32:32 1999
+@@ -53,7 +53,7 @@
+ #include "../vfs/vfs.h"
+ #include "../vfs/extfs.h"
+ 
+-#if defined(OS2_NT)
++#if defined (OS2_NT) || defined LOCAL_DRIVES 
+ # include "drive.h"
+ #endif
+ 
+@@ -2172,7 +2172,7 @@
+     { ALT('r'),   goto_middle_file }, /* M-r like emacs */
+     { ALT('j'),   goto_bottom_file },
+ 
+-#ifdef OS2_NT
++#if defined (OS2_NT) || defined LOCAL_DRIVES 
+     { ALT(KEY_F(11)), drive_cmd_a },
+     { ALT(KEY_F(12)), drive_cmd_b },
+     { ALT('d'),   drive_chg },
+diff -Naur mc-4.5.4/src/tree.c mc-4.5.4.emx/src/tree.c
+--- mc-4.5.4/src/tree.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/tree.c	Fri Jan  1 21:40:24 1999
+@@ -564,6 +564,9 @@
+ 	    if (name [len - 1] == '\n'){
+ 		name [--len] = 0;
+ 	    }
++#ifdef OS2EMX_CHG
++            while(len&&name[len-1]=='\r')name[--len]=0;
++#endif
+ #ifdef OS2_NT
+             /* .ado: Drives for NT and OS/2 */
+             if ((len > 2)         && 
+@@ -574,8 +577,12 @@
+         		strcpy (oldname, name);
+             } else
+ #endif
++#ifdef HETER_NET
++	    if (name [0] != PATH_SEP && name[0] && name[1]!=':'){
++#else
+             /* UNIX Version */
+ 	    if (name [0] != PATH_SEP){
++#endif
+ 		/* Clear-text decompression */
+ 		char *s = strtok (name, " ");
+ 
+@@ -596,12 +603,26 @@
+     }
+     if (!tree->tree_first){
+ 	/* Nothing loaded -> let's add some standard directories */
++#ifdef LOCAL_DRIVES 
++        int D[32],*d;
++        char buf[16]="X:/";
++	tree_add_entry (tree, "C:/");
++#else
+ 	tree_add_entry (tree, PATH_SEP_STR);
++#endif
+ 	tree->selected_ptr = tree->tree_first;
+ 	tree_rescan_cmd (tree);
+ 	tree_add_entry (tree, home_dir);
+ 	tree_chdir (tree, home_dir);
+ 	tree_rescan_cmd (tree);
++#ifdef LOCAL_DRIVES
++        get_logical_drives(D);  
++        d=D;
++        while(*d){
++              buf[0]=*d++;
++              tree_add_entry (tree, buf);
++        }
++#endif
+     }
+ }
+ 
+diff -Naur mc-4.5.4/src/user.c mc-4.5.4.emx/src/user.c
+--- mc-4.5.4/src/user.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/user.c	Fri Jan  1 21:41:26 1999
+@@ -501,7 +501,11 @@
+     int do_quote;
+     char prompt [80] = "";
+     int  col;
++#ifdef OS2EMX
++    char *file_name = tmpnam_ext(".cmd");
++#else
+     char *file_name = tmpnam (0);
++#endif
+ 
+ #ifdef OS2_NT
+     /* OS/2 and NT requires the command to end in .cmd */
+diff -Naur mc-4.5.4/src/util.c mc-4.5.4.emx/src/util.c
+--- mc-4.5.4/src/util.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/util.c	Fri Jan  1 21:44:10 1999
+@@ -324,7 +324,7 @@
+     if (ismode (mode_bits, S_IXUSR)) mode [3] = 'x';
+     if (ismode (mode_bits, S_IWUSR)) mode [2] = 'w';
+     if (ismode (mode_bits, S_IRUSR)) mode [1] = 'r';
+-#ifndef OS2_NT
++#if !defined (OS2_NT) && !defined (OS2EMX)
+     if (ismode (mode_bits, S_ISUID)) mode [3] = (mode [3] == 'x') ? 's' : 'S';
+     if (ismode (mode_bits, S_ISGID)) mode [6] = (mode [6] == 'x') ? 's' : 'S';
+     if (ismode (mode_bits, S_IFCHR)) mode [0] = 'c';
+@@ -657,7 +657,13 @@
+ char *x_basename (char *s)
+ {
+     char  *where;
++#ifdef HETER_NET
++    where = strrchr (s, PATH_SEP);
++    if(!where&&PATH_SEP=='/')where = strrchr (s, '\\');
++    return where ? where + 1 : s;
++#else
+     return ((where = strrchr (s, PATH_SEP)))? where + 1 : s;
++#endif
+ }
+ 
+ char *get_full_name (char *dir, char *file)
+@@ -850,6 +856,9 @@
+ char *get_current_wd (char *buffer, int size)
+ {
+     char *p;
++#ifdef GETCWD
++   return GETCWD (buffer, size);
++#endif
+ 
+ #ifdef HAVE_GETWD
+     p = (char *) getwd (buffer);
+diff -Naur mc-4.5.4/src/utilunix.c mc-4.5.4.emx/src/utilunix.c
+--- mc-4.5.4/src/utilunix.c	Wed Dec 30 11:50:40 1998
++++ mc-4.5.4.emx/src/utilunix.c	Fri Jan  1 21:49:52 1999
+@@ -62,6 +62,9 @@
+ #ifdef __QNX__
+ #   include <unix.h>		/* exec*() from <process.h> */
+ #endif
++#ifdef OS2EMX
++#include <process.h>            /* P_WAIT */
++#endif
+ #include "util.h"
+ #include "global.h"
+ #include "fsusage.h"
+@@ -518,7 +521,11 @@
+ 			     break;
+ 		         }
+ 		     va_end (ap);
++#ifdef OS2EMX /* execvp or P_NOWAIT -> mcserver Connection closed  */
++                     spawnvp(P_WAIT,command,args);
++#else
+ 		     execvp (command, args);
++#endif
+ 		     exit (0);
+ 		}
+ 	    	default:
+@@ -587,6 +594,24 @@
+     int i, start;
+     char stub_char;
+ 
++#ifdef HETER_NET /* if path begin with "C:","A:"... !!! ftp server !!! */
++    int delta = 0;
++    if (path[0] == '/' && path[1] && path[2] == ':') {	/*  "/C:" */
++      char *q = path, *p = path + 1;
++      while (*p)
++        *q++ = *p++;
++      *q = 0;
++    }
++    if (path[0] && path[1] == ':') {	/* "C:" */
++      delta += 2;
++      path += 2;
++      if (path[0] == 0) {
++        path[0] = '/';
++        path[1] = 0;
++      }
++    }
++#endif
++
+     stub_char = (*path == PATH_SEP) ? PATH_SEP : '.';
+ 
+     /* Walk along path looking for things to compact. */
+@@ -669,6 +694,13 @@
+ 	        while (--start > -1 && path[start] != PATH_SEP);
+ 	        if (!strncmp (path + start + 1, "../", 3))
+ 	            continue;
++#ifdef HETER_NET
++                /* remove group "/C:/" or "C:" */
++                if(path[start+2]==':') { 
++                   while (--start > -1 && path[start] != PATH_SEP);
++                      i-=2;
++                } 
++#endif
+ 	        strcpy (path + start + 1, path + i + 2);
+ 	        i = start;
+ 	        continue;
+@@ -680,6 +712,9 @@
+         *path = stub_char;
+         path[1] = '\0';
+     }
++#ifdef HETER_NET
++    path-=delta;
++#endif
+     return path;
+ }
+ 
+@@ -771,6 +806,11 @@
+     struct mount_entry *entry = NULL;
+     struct mount_entry *temp = mount_list;
+     struct fs_usage fs_use;
++
++#ifdef OS2EMX
++    os2_my_statfs(myfs_stats,path);
++    return;
++#endif
+ 
+     while (temp){
+ 	i = strlen (temp->me_mountdir);
+diff -Naur mc-4.5.4/src/zz mc-4.5.4.emx/src/zz
+--- mc-4.5.4/src/zz	Thu Jan  1 00:00:00 1970
++++ mc-4.5.4.emx/src/zz	Fri Jan  1 22:33:16 1999
+@@ -0,0 +1,5 @@
++_g_log
++_g_vsnprintf 
++_g_strdup_vprintf
++_g_free 
++_g_snprintf
+diff -Naur mc-4.5.4/vfs/extfs.c mc-4.5.4.emx/vfs/extfs.c
+--- mc-4.5.4/vfs/extfs.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/extfs.c	Fri Jan  1 19:09:22 1999
+@@ -62,6 +62,10 @@
+ static char extfs_need_archive [MAXEXTFS];
+ static int extfs_no = 0;
+ 
++#ifdef OS2EMX
++#define SLASH_TO_BACK(cmd) {char *p=cmd; while(*p){if(*p=='/')*p='\\'; p++;}}
++#endif
++
+ static void extfs_fill_names (vfs *me, void (*func)(char *))
+ {
+     struct archive *a = first_archive;
+@@ -213,6 +217,9 @@
+                         " list ", local_name ? local_name : tmp, 0);
+     if (tmp)
+ 	free (tmp);
++#ifdef OS2EMX
++    SLASH_TO_BACK (cmd);
++#endif
+     result = popen (cmd, "r");
+     free (cmd);
+     free (mc_extfsdir);
+@@ -576,6 +583,9 @@
+     free (mc_extfsdir);
+     free (archive_name);
+     free (q);
++#ifdef OS2EMX
++    SLASH_TO_BACK (cmd);
++#endif
+ #ifndef VFS_STANDALONE
+     shell_execute(cmd, 0);
+ #else
+@@ -628,6 +638,9 @@
+ 	free (q);
+ 	free (mc_extfsdir);
+ 	free (archive_name);
++#ifdef OS2EMX
++        SLASH_TO_BACK (cmd);
++#endif
+         if (my_system (EXECUTE_AS_SHELL | EXECUTE_SETUID, shell, cmd) && !do_create){
+             free (entry->inode->local_filename);
+             entry->inode->local_filename = NULL;
+@@ -640,7 +653,9 @@
+     
+     local_handle = open (entry->inode->local_filename, flags, mode);
+     if (local_handle == -1) ERRNOR (EIO, NULL);
+-    
++#ifdef OS2EMX_CHG
++    lseek (local_handle, 0, SEEK_SET);
++#endif
+     extfs_info = (struct pseudofile *) xmalloc (sizeof (struct pseudofile), "Extfs: extfs_open");
+     extfs_info->archive = archive;
+     extfs_info->entry = entry;
+@@ -690,6 +705,9 @@
+ 			    file->entry->inode->local_filename, 0);
+ 	free (archive_name);
+ 	free (file_name);
++#ifdef OS2EMX
++        SLASH_TO_BACK (cmd);
++#endif
+ 	if (my_system (EXECUTE_AS_SHELL | EXECUTE_SETUID, shell, cmd))
+ 	    errno_code = EIO;
+ 	free (cmd);
+@@ -996,6 +1014,10 @@
+     s_fstat,
+ 
+     extfs_chmod,		/* chmod ... strange, returns success? */
++#ifdef HETER_NET		/* setattrib, getattrib */
++    NULL,
++    NULL,
++#endif
+     NULL,
+     NULL,
+ 
+diff -Naur mc-4.5.4/vfs/fish.c mc-4.5.4.emx/vfs/fish.c
+--- mc-4.5.4/vfs/fish.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/fish.c	Fri Jan  1 19:13:50 1999
+@@ -808,6 +808,10 @@
+     vfs_s_fstat,
+ 
+     fish_chmod,
++#ifdef HETER_NET /* setattrib, getattrib */
++    NULL, 
++    NULL,
++#endif
+     fish_chown,
+     NULL,		/* utime */
+ 
+diff -Naur mc-4.5.4/vfs/ftpfs.c mc-4.5.4.emx/vfs/ftpfs.c
+--- mc-4.5.4/vfs/ftpfs.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/ftpfs.c	Sat Jan  2 15:40:26 1999
+@@ -371,8 +371,13 @@
+ #endif
+     } else 
+ 	name = strdup (quser (bucket));
+-    
++#ifdef HETER_NET    
++    if (get_reply (qsock(bucket), 
++          reply_str, sizeof (reply_str)-1) == COMPLETE) {
++        if(strstr(reply_str,"OS/2"))add_host_os(qhost(bucket), "OS/2"); 
++#else
+     if (get_reply (qsock(bucket), NULL, 0) == COMPLETE) {
++#endif
+ #if defined(HSC_PROXY)
+ 	if (qproxy(bucket)) {
+ 	    print_vfs_message("ftpfs: sending proxy login name");
+@@ -1184,6 +1189,9 @@
+     struct dir *dcache;
+     int got_intr = 0;
+     int has_spaces = (strchr (remote_path, ' ') != NULL);
++#ifdef HETER_NET  /* IBM ftp server send only "total 0" for empty dir */
++    int total=-1;
++#endif
+ 
+     canonicalize_pathname (remote_path);
+     for (p = qdcache(bucket)->next;p != qdcache(bucket);
+@@ -1238,6 +1246,9 @@
+     dcache->count = 1;
+     dcache->symlink_status = FTPFS_NO_SYMLINKS;
+ 
++#ifdef HETER_NET /* remove '/' from "C:/"  */
++    canonicalize_pathname (remote_path);
++#endif
+     if (bucket->strict_rfc959_list_cmd == 1) 
+         sock = open_data_connection (bucket, "LIST", 0, TYPE_ASCII, 0);
+     else if (has_spaces)
+@@ -1281,8 +1292,24 @@
+             fputs ("\n", logfile);
+ 	    fflush (logfile);
+ 	}
++#ifdef HETER_NET
++        if(strncmp(buffer, "total", 5) == 0) {
++           int t;
++           if(sscanf(buffer+5,"%i",&t) == 1) total=t;
++        }
+ 	if (buffer [0] == 0 && eof)
++          if(file_list->next != file_list||total != 0)
+ 	    break;
++        else /* IBM ftp server format */
++          sprintf(buffer," 0  DIR   01-01-80 00:00  ..");   
++/* fake file -> message
++   File exists but can not be stat-ed: .. No such file or directory
++   if no files in directory
++*/
++#else
++	if (buffer [0] == 0 && eof)
++	    break;
++#endif
+ 	fe = xmalloc(sizeof(struct direntry), "struct direntry");
+ 	fe->freshly_created = 0;
+ 	fe->local_filename = NULL;
+@@ -1573,7 +1600,14 @@
+ static int ftpfs_chmod (vfs *me, char *path, int mode)
+ {
+     char buf[40];
+-    
++#ifdef HETER_NET /* IBM ftp server for OS/2 -> 1.answer 502 + 2.answer 550 */
++                 /* => synchronization command<->answer failed             */
++    char *os=(char *)remote_os(path);
++    if(os_has_chmod(os)==0){
++        free(os);
++        return 0;
++    }
++#endif    
+     sprintf(buf, "SITE CHMOD %4.4o %%s", mode & 07777);
+     return send_ftp_command(path, buf, OPT_IGNORE_ERROR | OPT_FLUSH);
+ }
+@@ -1725,6 +1759,10 @@
+     s_fstat,
+ 
+     ftpfs_chmod,
++#ifdef HETER_NET	/* setattrib, getattrib */
++    NULL,
++    NULL,
++#endif
+     ftpfs_chown,	/* not really implemented but returns success */
+     NULL,
+ 
+@@ -1936,3 +1974,56 @@
+ }
+ #endif
+ #endif /* USE_NETRC */
++
++#ifdef HETER_NET
++
++char *
++ftp_tilde_expand (char *ftp_name)
++{
++  char *rc = 0, *p, *q, *user = 0, *host = 0, *home = 0, buf[512];
++  strcpy (buf, ftp_name);
++  p = strstr (buf, "#ftp:");
++  if (p) {
++    p += 5;
++    user = p;
++    while (*p) {
++      if (*p == ':')
++	*p++ = 0;
++      else if (*p == '@') {
++	*p++ = 0;
++	host = p;
++      }
++      else if (*p == '/')
++	*p++ = 0;
++      else
++	p++;
++    }
++    if (host && user) {
++      struct connection *bucket;
++      struct linklist *lptr;
++      for (lptr = connections_list->next;
++	   lptr != connections_list; lptr = lptr->next) {
++	bucket = lptr->data;
++	if (!strcmp (host, qhost (bucket)) && !strcmp (user, quser (bucket))) {
++	  home = qhome (bucket);
++	  q = buf;
++	  p = ftp_name;
++	  while (*p) {
++	    if (*p == '~') {
++	      strcpy (q, home);
++	      q += strlen (home);
++	      p++;
++	    }
++	    else
++	      *q++ = *p++;
++	  }
++	  *q = 0;
++	  return strdup (buf);
++	}
++      }
++    }
++  }
++  return 0;
++}
++#endif
++
+diff -Naur mc-4.5.4/vfs/local.c mc-4.5.4.emx/vfs/local.c
+--- mc-4.5.4/vfs/local.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/local.c	Fri Jan  1 19:27:06 1999
+@@ -147,6 +147,35 @@
+     return chmod (path, mode);
+ }
+ 
++#ifdef HETER_NET
++
++static int 
++local_setattrib (vfs * me, char *path, int attr)
++{
++#ifdef OS2EMX
++  return set_attrib (path, attr) ? -1 : 0;
++#else
++  return -1;
++#endif
++}
++
++static int 
++local_getattrib (vfs * me, char *path, int *attr)
++{
++#ifdef OS2EMX
++  int rc = get_attrib (path);
++  if (rc == -1)
++    return -1;
++  *attr = rc;
++  return 0;
++#else
++  return -1;
++#endif
++}
++
++#endif /* HETER_NET */
++
++
+ static int
+ local_chown (vfs *me, char *path, int owner, int group)
+ {
+@@ -208,7 +237,11 @@
+ static int
+ local_chdir (vfs *me, char *path)
+ {
++#if defined CHDIR
++    return CHDIR (path);
++#else
+     return chdir (path);
++#endif
+ }
+ 
+ int
+@@ -322,6 +355,10 @@
+     local_fstat,
+ 
+     local_chmod,
++#ifdef HETER_NET		
++    local_setattrib,
++    local_getattrib,
++#endif
+     local_chown,
+     local_utime,
+ 
+diff -Naur mc-4.5.4/vfs/mcfs.c mc-4.5.4.emx/vfs/mcfs.c
+--- mc-4.5.4/vfs/mcfs.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/mcfs.c	Fri Jan  1 19:34:16 1999
+@@ -73,6 +73,9 @@
+ static int my_errno;
+ 
+ static char *mcfs_gethome (mcfs_connection *mc);
++#ifdef HETER_NET
++static void mcfs_getosinfo (mcfs_connection *mc);
++#endif
+ 
+ /* Extract the hostname and username from the path */
+ /* path is in the form: hostname:user/remote-dir */
+@@ -91,7 +94,13 @@
+ 	if (mcfs_connections [i].host == 0)
+ 	    continue;
+ 	name = copy_strings ("/#mc:", mcfs_connections [i].user,
++#ifdef HETER_NET  /* C:/ */
++			     "@",   mcfs_connections [i].host,
++                             mcfs_connections [i].home[0]!='/'?"/":"",
++                             mcfs_connections [i].home ,0 );
++#else
+ 			     "@",   mcfs_connections [i].host, 0);
++#endif
+ 	(*func) (name);
+ 	free (name);
+     }
+@@ -334,7 +343,9 @@
+     bucket->port    = *port;
+     bucket->sock    = sock;
+     bucket->version = version;
+-
++#ifdef HETER_NET
++    mcfs_getosinfo(bucket);
++#endif
+     return bucket;
+ }
+ 
+@@ -516,7 +527,11 @@
+ 	return 0;
+ 
+     rpc_send (mc->sock, RPC_INT, MC_OPEN, RPC_STRING, remote_file,
++#ifdef HETER_NET
++              RPC_INT, flags_to_mc (flags), RPC_INT, mode, RPC_END);
++#else
+ 	      RPC_INT, flags, RPC_INT, mode, RPC_END);
++#endif
+     free (remote_file);    
+ 
+     if (0 == rpc_get (mc->sock, RPC_INT, &result, RPC_INT, &error_num, RPC_END))
+@@ -909,6 +924,45 @@
+ 	return the_error (-1, EIO);
+ }
+ 
++#ifdef HETER_NET
++static void mcfs_getosinfo (mcfs_connection *mc)
++{   
++    char *buffer=0;
++    rpc_send (mc->sock, RPC_INT, MC_GETOSINFO, RPC_END);
++    if (rpc_get (mc->sock, RPC_STRING, &buffer, RPC_END)) 
++         add_host_os(mc->host,buffer); 
++    if(buffer)free(buffer);
++}
++
++int 
++mcfs_setattrib (vfs * me, char *path, int attr)
++{
++  return mcfs_rpc_path_int (MC_SETATTRIB, path, attr);
++}
++
++int 
++mcfs_getattrib (vfs * me, char *path, int *attr)
++{
++  mcfs_connection *mc;
++  char *file;
++  int error;
++
++  if (!(file = mcfs_get_path (&mc, path)))
++    return -1;
++
++  rpc_send (mc->sock, RPC_INT, MC_GETATTRIB, RPC_STRING, file, RPC_END);
++  free (file);
++  if (!rpc_get (mc->sock, RPC_INT, attr, RPC_INT, &error, RPC_END))
++    return the_error (-1, errno);
++
++  if (is_error (*attr, error))
++    return -1;
++
++  return 0;
++}
++#endif
++
++
+ static int mcfs_chmod (vfs *me, char *path, int mode)
+ {
+     return mcfs_rpc_path_int (MC_CHMOD, path, mode);
+@@ -1149,6 +1203,10 @@
+     mcfs_fstat,
+ 
+     mcfs_chmod,
++#ifdef HETER_NET
++    mcfs_setattrib,
++    mcfs_getattrib,
++#endif
+     mcfs_chown,
+     mcfs_utime,
+ 
+@@ -1177,3 +1235,56 @@
+ 
+ MMAPNULL
+ };
++
++#ifdef HETER_NET
++char *
++mcfs_tilde_expand (char *mcfs_name)
++{
++  char *rc = 0, *p, *q, *user = 0, *host = 0, *home = 0, buf[512];
++  strcpy (buf, mcfs_name);
++  p = strstr (buf, "#mc:");
++  if (p) {
++    p += 4;
++    user = p;
++    while (*p) {
++      if (*p == '@') {
++	*p++ = 0;
++	host = p;
++      }
++      else if (*p == '/')
++	*p++ = 0;
++      else
++	p++;
++    }
++    if (!host) {
++      host = user;
++      user = 0;
++    }
++    if (host) {
++      int ic;
++      for (ic = 0; ic < mcfs_open_connections; ic++) {
++	if (!strcmp (mcfs_connections[ic].host, host) && (!user ||
++			       !strcmp (mcfs_connections[ic].user, user))) {
++	  home = mcfs_connections[ic].home;
++	  q = buf;
++	  p = mcfs_name;
++	  while (*p) {
++	    if (*p == '~') {
++	      strcpy (q, home);
++	      q += strlen (home);
++	      p++;
++	    }
++	    else
++	      *q++ = *p++;
++	  }
++	  *q = 0;
++	  return strdup (buf);
++	}
++      }
++    }
++  }
++  return 0;
++}
++
++#endif
++
+diff -Naur mc-4.5.4/vfs/mcfs.h mc-4.5.4.emx/vfs/mcfs.h
+--- mc-4.5.4/vfs/mcfs.h	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/vfs/mcfs.h	Fri Jan  1 19:34:50 1999
+@@ -38,6 +38,12 @@
+     
+     MC_UTIME,           /* it has to go here for compatibility with old
+ 			   servers/clients. sigh ... */
++#ifdef HETER_NET
++    MC_GETOSINFO,
++    /* DOS, OS/2, Windows file system (FAT,HPFS,FAT32) on server  */
++    MC_SETATTRIB,         
++    MC_GETATTRIB,           
++#endif
+ 
+     MC_INVALID_PASS = 0x1000,
+     MC_NEED_PASSWORD,
+diff -Naur mc-4.5.4/vfs/mcserv.c mc-4.5.4.emx/vfs/mcserv.c
+--- mc-4.5.4/vfs/mcserv.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/mcserv.c	Sat Jan  2 14:21:46 1999
+@@ -133,6 +133,13 @@
+ /* if the server will use rcmd based authentication (hosts.equiv .rhosts) */
+ int r_auth = 0;
+ 
++#ifdef HETER_NET
++#ifndef OS_INFO
++#define OS_INFO "UNKNOWN"
++#endif
++static int compat_mode = 0;	/* compatibility with old clients */
++#endif
++
+ #define OPENDIR_HANDLES 8
+ 
+ #define DO_QUIT_VOID() \
+@@ -159,6 +166,41 @@
+ 
+ /* {{{ Misc routines */
+ 
++#ifdef HETER_NET
++/*  "/C:/.." --> "C:/..."  etc.    */
++/* ! server side !                 */
++char *
++adjust (char **str)
++{
++  char *rc = *str, buf[512], *p;
++  if (rc[0] == '/' && rc[1] && rc[2] == ':')
++    rc++;	    /* "/C:"  -> "C:"  */
++  if (rc[0] && rc[1] == ':' && !rc[2]) { 
++    /* cannot _chdir2 to "X:" -> "X:/" */
++    strcpy (buf, rc);
++    strcat (buf, "/");
++    free (*str);
++    *str = strdup (buf);
++    rc = *str;
++  }
++  /*  "/"  -> "H:/" */
++  else if (rc[0] == '/' && home_dir && home_dir[0] && home_dir[1] == ':') {
++    strncpy (buf, home_dir, 2);
++    strcpy (buf + 2, rc);
++    free (*str);
++    *str = strdup (buf);
++    rc = *str;
++  }
++  p = rc;			/* duplicate "//" */
++  while (*p) {
++    while (*p == '/' && *(p + 1) == '/')
++      strcpy (p, p + 1);
++    p++;
++  }
++  return rc;
++}
++#endif
++
+ void send_status (int status, int errno_number)
+ {
+     rpc_send (msock, RPC_INT, status, RPC_INT, errno_number, RPC_END);
+@@ -175,8 +217,14 @@
+     char *arg;
+ 
+     rpc_get (msock, RPC_STRING, &arg, RPC_INT, &flags, RPC_INT, &mode,RPC_END);
+-    
++#ifdef HETER_NET
++    handle = open (adjust (&arg), flags_from_mc (flags), mode);
++#else
+     handle = open (arg, flags, mode);
++#endif
++#ifdef OS2EMX_CHG
++    lseek (handle, 0, SEEK_SET);
++#endif
+     send_status (handle, errno);
+     free (arg);
+ }
+@@ -326,7 +374,11 @@
+     int    n;
+ 
+     rpc_get (msock, RPC_STRING, &file, RPC_END);
++#ifdef HETER_NET
++    n = lstat (adjust (&file), &st);
++#else
+     n = lstat (file, &st);
++#endif
+     send_status (n, errno);
+     if (n >= 0)
+ 	send_stat_info (&st);
+@@ -355,8 +407,11 @@
+     char   *file;
+ 
+     rpc_get (msock, RPC_STRING, &file, RPC_END);
+-
++#ifdef HETER_NET
++    n = stat (adjust (&file), &st);
++#else
+     n = stat (file, &st);
++#endif
+     send_status (n, errno);
+     if (n >= 0)
+ 	send_stat_info (&st);
+@@ -415,7 +470,11 @@
+     }
+ 
+     if (verbose) printf ("handle=%d\n", handle);
++#ifdef HETER_NET
++    p = opendir (adjust (&arg));
++#else
+     p = opendir (arg);
++#endif
+     if (p){
+ 	mcfs_DIR.dirs [handle] = p;
+ 	mcfs_DIR.names [handle] = arg;
+@@ -456,7 +515,11 @@
+ 	rpc_send (msock, RPC_BLOCK, length, dirent->d_name, RPC_END);
+ 	fname = malloc (dnamelen + length + 2);
+ 	strcat (strcat (strcpy (fname, mcfs_DIR.names [handle]), "/"), dirent->d_name);
+-	n = lstat (fname, &st);
++#ifdef HETER_NET
++        n = lstat (adjust (&fname), &st);
++#else
++        n = lstat (fname, &st);
++#endif
+ 	send_status (n, errno);
+ 	free (fname);
+ 	if (n >= 0)
+@@ -484,7 +547,15 @@
+ 
+     rpc_get (msock, RPC_STRING, &file, RPC_END);
+     
++#ifdef HETER_NET
++#ifdef CHDIR
++    status = CHDIR (adjust (&file));
++#else
++    status = chdir (adjust (&file));
++#endif
++#else
+     status = chdir (file);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+@@ -496,7 +567,11 @@
+ 
+     rpc_get (msock, RPC_STRING, &file, RPC_END);
+     
++#ifdef HETER_NET
++    status = rmdir (adjust (&file));
++#else
+     status = rmdir (file);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+@@ -508,7 +583,11 @@
+ 
+     rpc_get (msock, RPC_STRING, &file, RPC_INT, &mode, RPC_END);
+     
++#ifdef HETER_NET
++    status = mkdir (adjust (&file), mode);
++#else
+     status = mkdir (file, mode);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+@@ -519,8 +598,12 @@
+     int  mode, dev, status;
+ 
+     rpc_get (msock, RPC_STRING, &file, RPC_INT, &mode, RPC_INT, &dev, RPC_END);
+-    
++
++#ifdef HETER_NET
++    status = mknod (adjust (&file), mode, dev);
++#else
+     status = mknod (file, mode, dev);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+@@ -532,7 +615,11 @@
+     int  n;
+ 
+     rpc_get (msock, RPC_STRING, &file, RPC_END);
++#ifdef HETER_NET
++    n = readlink (adjust (&file), buffer, 2048);
++#else
+     n = readlink (file, buffer, 2048);
++#endif
+     send_status (n, errno);
+     if (n >= 0) {
+         buffer [n] = 0;
+@@ -547,7 +634,11 @@
+     int  status;
+     
+     rpc_get (msock, RPC_STRING, &file, RPC_END);
++#ifdef HETER_NET
++    status = unlink (adjust (&file));
++#else
+     status = unlink (file);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+@@ -558,7 +649,11 @@
+     int  status;
+     
+     rpc_get (msock, RPC_STRING, &f1, RPC_STRING, &f2, RPC_END);
++#ifdef HETER_NET
++    status = rename (adjust (&f1), adjust (&f2));
++#else
+     status = rename (f1, f2);
++#endif
+     send_status (status, errno);
+     free (f1); free (f2);
+ }
+@@ -569,7 +664,11 @@
+     int  status;
+     
+     rpc_get (msock, RPC_STRING, &f1, RPC_STRING, &f2, RPC_END);
++#ifdef HETER_NET
++    status = symlink (adjust (&f1), adjust (&f2));
++#else
+     status = symlink (f1, f2);
++#endif
+     send_status (status, errno);
+     free (f1); free (f2);
+ }
+@@ -580,8 +679,13 @@
+     int  status;
+     
+     rpc_get (msock, RPC_STRING, &f1, RPC_STRING, &f2, RPC_END);
++#ifdef HETER_NET
++    status = link (adjust (&f1), adjust (&f2));
++    send_status (status, errno);
++#else
+     status = link (f1, f2);
+     send_status (link (f1, f2), errno);
++#endif
+     free (f1); free (f2);
+ }
+ 
+@@ -590,9 +694,17 @@
+ 
+ /* {{{ Misc commands */
+ 
++
+ void do_gethome (void)
+ {
++#ifdef HETER_NET
++    char *p = home_dir;
++    if (compat_mode && p && p[0] && p[1] == ':')
++      p += 2;
++    rpc_send (msock, RPC_STRING, (p) ? p : "/", RPC_END);
++#else
+     rpc_send (msock, RPC_STRING, (home_dir) ? home_dir : "/", RPC_END);
++#endif
+ }
+ 
+ void do_getupdir (void)
+@@ -606,18 +718,68 @@
+     int  mode, status;
+     
+     rpc_get (msock, RPC_STRING, &file, RPC_INT, &mode, RPC_END);
++#ifdef HETER_NET
++    status = chmod (adjust (&file), mode);
++#else
+     status = chmod (file, mode);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+ 
++#ifdef HETER_NET
++void do_getosinfo (void)
++{
++    rpc_send (msock, RPC_STRING, OS_INFO, RPC_END);
++}
++
++void 
++do_setattrib (void)
++{
++  char *file;
++  int attr, status;
++
++  rpc_get (msock, RPC_STRING, &file, RPC_INT, &attr, RPC_END);
++#ifdef OS2EMX
++  status = set_attrib (adjust (&file), attr);
++#else
++  status = -1;
++#endif
++  send_status (status, errno);
++  free (file);
++
++}
++
++void 
++do_getattrib (void)
++{
++  int attr;
++  char *file;
++
++  rpc_get (msock, RPC_STRING, &file, RPC_END);
++#ifdef OS2EMX
++  attr = get_attrib (adjust (&file));
++#else
++  attr = -1;
++#endif
++  send_status (attr, errno);
++  free (file);
++}
++
++#endif /* HETER_NET */
++
++
+ void do_chown (void)
+ {
+     char *file;
+     int  owner, group, status;
+     
+     rpc_get (msock, RPC_STRING, &file,RPC_INT, &owner, RPC_INT,&group,RPC_END);
++#ifdef HETER_NET
++    status = chown (adjust (&file), owner, group);
++#else
+     status = chown (file, owner, group);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+@@ -644,7 +806,11 @@
+     free (ms);
+     times.actime  = (time_t) atime;
+     times.modtime = (time_t) mtime;
++#ifdef HETER_NET
++    status = utime (adjust (&file), &times);
++#else
+     status = utime (file, &times);
++#endif
+     send_status (status, errno);
+     free (file);
+ }
+@@ -887,7 +1053,11 @@
+     if (this == 0)
+ 	return 0;
+ 
++#ifdef CHDIR
++    if (CHDIR (this->pw_dir) == -1)
++#else
+     if (chdir (this->pw_dir) == -1)
++#endif
+         return 0;
+     
+     if (this->pw_dir [strlen (this->pw_dir) - 1] == '/')
+@@ -1031,6 +1201,11 @@
+     { "login",      do_login },
+     { "quit",       do_quit },
+     { "utime",      do_utime },
++#ifdef HETER_NET
++    { "getosinfo",  do_getosinfo},
++    { "setattrib",  do_setattrib},
++    { "getattrib",  do_getattrib},
++#endif
+ };
+ 
+ static int ncommands = sizeof(commands)/sizeof(struct _command);
+@@ -1207,7 +1382,11 @@
+     extern char *optarg;
+     int c;
+ 
+-    while ((c = getopt (argc, argv, "fdiqp:v")) != -1){
++#ifdef HETER_NET
++    while ((c = getopt (argc, argv, "fdiqop:v")) != -1) {
++#else
++    while ((c = getopt (argc, argv, "fdiqp:v")) != -1) {
++#endif
+ 	switch (c){
+ 	case 'd':
+ 	    isDaemon = 1;
+@@ -1230,6 +1409,11 @@
+ 	    portnum = atoi (optarg);
+ 	    break;
+ 
++#ifdef HETER_NET
++        case 'o':
++            compat_mode = 1;
++            break;
++#endif
+ 	case 'i':
+ 	    inetd_started = 1;
+ 	    break;
+@@ -1246,6 +1430,9 @@
+ 		/*    "-r  use rhost based authentication\n" */
+ #ifndef HAVE_PAM
+ 		    "-f  force ftp authentication\n"
++#endif
++#ifdef HETER_NET
++                    "-o  old clients compatibility mode\n"
+ #endif
+ 		    "-v  verbose mode\n"
+ 		    "-p  to specify a port number to listen\n");
+diff -Naur mc-4.5.4/vfs/sfs.c mc-4.5.4.emx/vfs/sfs.c
+--- mc-4.5.4/vfs/sfs.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/sfs.c	Sun Jan  3 08:36:56 1999
+@@ -30,7 +30,11 @@
+ #include "local.h"
+ 
+ /* This is needed, or libvfs.so will lack symbol shell. Should look up who requires it */
++#ifndef OS2EMX
+ char *shell = "/bin/sh";
++#else /* in src/main.c */
++extern char *shell;
++#endif
+ 
+ struct cachedfile {
+     char *name, *cache;
+@@ -92,8 +96,11 @@
+ 	s++;
+     }
+     free( name );
+-
++#ifdef OS2EMX_CHG
++    if (my_system (EXECUTE_AS_SHELL | EXECUTE_SETUID, shell, pad)) {
++#else
+     if (my_system (EXECUTE_AS_SHELL | EXECUTE_SETUID, "/bin/sh", pad)) {
++#endif
+ 	return -1;
+     }
+ 
+@@ -388,6 +395,10 @@
+     local_fstat,
+ 
+     sfs_chmod,
++#ifdef HETER_NET /* setattrib, getattrib */
++    NULL, 
++    NULL,
++#endif
+     sfs_chown,
+     sfs_utime,
+ 
+diff -Naur mc-4.5.4/vfs/shared_ftp_fish.c mc-4.5.4.emx/vfs/shared_ftp_fish.c
+--- mc-4.5.4/vfs/shared_ftp_fish.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/shared_ftp_fish.c	Fri Jan  1 19:40:46 1999
+@@ -189,7 +189,12 @@
+ 
+ 	    path_name = copy_strings ( X_myname, quser (bucket),
+ 				      "@",      qhost (bucket), 
+-				      qcdir(bucket), 0);
++#ifdef HETER_NET  /* C:/ */
++                                       qhome(bucket)[0]!='/'?"/":"",
++  				       qhome(bucket), 0);
++#else
++  				       qcdir(bucket), 0);
++#endif
+ 	    (*func)(path_name);
+ 	    free (path_name);
+ 	}
+@@ -282,7 +287,21 @@
+     struct linklist *file_list, *lptr;
+     struct dir *dcache;
+     struct stat sb;
+-
++#ifdef HETER_NET
++  char *dirname;
++  canonicalize_pathname (file_name);
++  dirname = strdup (file_name);
++  /* !!! internal canonicalize_pathname in */
++  /* retrieve_dir overwrite file_name      */
++  p = strrchr (dirname, '/');
++  *(++p) = '\0';
++  p = file_name + (p - dirname);	/* p...file_part */
++  dcache = retrieve_dir (bucket, dirname, op & DO_RESOLVE_SYMLINK);
++  free (dirname);
++  if (dcache == NULL)
++    return NULL;
++  file_list = dcache->file_list;
++#else
+     p = strrchr(file_name, '/');
+     q = *p;
+     *p = '\0';
+@@ -291,6 +310,7 @@
+         return NULL;
+     file_list = dcache->file_list;
+     *p++ = q;
++#endif
+     if (!*p) 
+         p = ".";
+     for (lptr = file_list->next; lptr != file_list; lptr = lptr->next) {
+diff -Naur mc-4.5.4/vfs/tar.c mc-4.5.4.emx/vfs/tar.c
+--- mc-4.5.4/vfs/tar.c	Wed Dec 30 11:50:34 1998
++++ mc-4.5.4.emx/vfs/tar.c	Fri Jan  1 19:43:44 1999
+@@ -527,6 +527,10 @@
+     vfs_s_fstat,
+ 
+     NULL,
++#ifdef HETER_NET /* setattrib, getattrib */
++    NULL, 
++    NULL,
++#endif
+     NULL,
+     NULL,
+ 
+diff -Naur mc-4.5.4/vfs/tcputil.c mc-4.5.4.emx/vfs/tcputil.c
+--- mc-4.5.4/vfs/tcputil.c	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/vfs/tcputil.c	Fri Jan  1 19:45:50 1999
+@@ -240,7 +240,7 @@
+     sock_callbacks = new;
+ }
+ 
+-#if defined(IS_AIX) || defined(linux) || defined(SCO_FLAVOR) || defined(__QNX__)
++#if defined(IS_AIX) || defined(linux) || defined(SCO_FLAVOR) || defined(__QNX__) || defined(OS2EMX)
+ static void sig_pipe (int unused)
+ #else
+ static void sig_pipe (void)
+diff -Naur mc-4.5.4/vfs/utilvfs.c mc-4.5.4.emx/vfs/utilvfs.c
+--- mc-4.5.4/vfs/utilvfs.c	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/vfs/utilvfs.c	Fri Jan  1 19:55:26 1999
+@@ -80,7 +80,11 @@
+ 	for (; *dir != '/' && *dir; dir++)
+ 	    ;
+ 	if (*dir){
+-	    retval = strdup (dir);
++#ifdef HETER_NET
++            retval=strdup(dir[1]&&dir[2]==':'?dir+1:dir);
++#else    
++            retval = strdup (dir);
++#endif
+ 	    *dir = 0;
+ 	} else
+ 	    retval = strdup ("/");
+diff -Naur mc-4.5.4/vfs/vfs.c mc-4.5.4.emx/vfs/vfs.c
+--- mc-4.5.4/vfs/vfs.c	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/vfs/vfs.c	Sat Jan  2 15:11:44 1999
+@@ -471,6 +471,35 @@
+     return result;
+ }
+ 
++#ifdef HETER_NET
++int 
++mc_setattrib (char *path, int a)
++{
++  vfs *vfs;
++  int result;
++
++  path = vfs_canon (path);
++  vfs = vfs_type (path);
++  result = vfs->setattrib ? (*vfs->setattrib) (vfs, path, a) : 0;
++  free (path);
++  return result;
++}
++
++int 
++mc_getattrib (char *path, int *a)
++{
++  vfs *vfs;
++  int result;
++
++  path = vfs_canon (path);
++  vfs = vfs_type (path);
++  result = vfs->getattrib ? (*vfs->getattrib) (vfs, path, a) : 0;
++  free (path);
++  return result;
++}
++
++#endif /* HETER_NET */
++
+ int
+ mc_close (int handle)
+ {
+@@ -514,13 +543,26 @@
+     vfs = vfs_type (dirname);
+ 
+     info = vfs->opendir ? (*vfs->opendir)(vfs, dirname) : NULL;
++#ifdef HETER_NET  /* non_unix ftp server cdup disabled */
++    if (p)
++        free (p);
++    if (!info){
++        message_2s (1, MSG_ERROR,
++	               _(" I can't open directory \"%s\""), dirname );
++        free(dirname);
++        errno = vfs->opendir ? ferrno (vfs) : EOPNOTSUPP;
++	return NULL;
++    }
++    free(dirname);
++#else
+     free (dirname);
+     if (p)
+         free (p);
+     if (!info){
+-        errno = vfs->opendir ? ferrno (vfs) : E_NOTSUPP;
++        errno = vfs->opendir ? ferrno (vfs) : EOPNOTSUPP;
+ 	return NULL;
+     }
++#endif
+     handle = get_bucket ();
+     vfs_file_table [handle].fs_info = info;
+     vfs_file_table [handle].operations = vfs;
+@@ -690,11 +732,31 @@
+ 
+ #define ISSLASH(a) (!a || (a == '/'))
+ 
++#ifdef HETER_NET
++char *ftp_tilde_expand(char *ftp_name);
++char *mcfs_tilde_expand(char *mcfs_name);
++
++static int 
++is_relative (char *path)
++{
++  int rc = 1;
++  if (*path == '/')
++    rc = 0;
++  else if (*path && path[1] == ':' && path[2] == '/')
++    rc = 0;
++  return rc;
++}
++
++#endif 
++
+ char *
+ vfs_canon (char *path)
+ {
+     if (!path) vfs_die("Can not canonize NULL");
+ 
++#ifdef HETER_NET
++   if(strchr(path,'~')){
++#endif
+     /* Tilde expansion */
+     if (*path == '~'){ 
+     	char *local, *result;
+@@ -707,9 +769,27 @@
+ 	} else 
+ 	    return strdup (path);
+     }
+-
++#ifdef HETER_NET
++    if (strstr (path, "#ftp:") || strstr (path, "#mc:")) {	
++      /* ftp mcfs Tilde expansion */
++      char *result, *local;
++      local = strstr (path, "#ftp:") ? ftp_tilde_expand (path) :
++	mcfs_tilde_expand (path);
++      if (local) {
++	result = vfs_canon (local);
++	free (local);
++	return result;
++      }
++      /* unknown host, user ... continue */
++    }
++  }
++#endif
++#ifdef HETER_NET
++    if (is_relative (path)) {/* Relative to current directory */
++#else
+     /* Relative to current directory */
+     if (*path != '/'){ 
++#endif
+     	char *local, *result;
+ 
+ 	if (current_dir [strlen (current_dir) - 1] == '/')
+@@ -1057,7 +1137,12 @@
+     fdin = mc_open (filename, O_RDONLY);
+     if (fdin == -1)
+         return NULL;
++#ifdef OS2EMX
++    tmp = strrchr (filename, '.');
++    tmp = tmpnam_ext (tmp ? tmp : ".tmp");
++#else
+     tmp = tempnam (NULL, "mclocalcopy");
++#endif
+     fdout = open (tmp, O_CREAT|O_WRONLY|O_TRUNC|O_EXCL, 0600);
+     if (fdout == -1){
+         mc_close (fdin);
+@@ -1502,6 +1587,76 @@
+     return idx;
+ }
+ 
++#ifdef HETER_NET
++int 
++parse_ls_lga_os2 (char *p, struct stat *s, char **filename, char **linkname)
++/* IBM TCPIP ftp server      */
++/* return : 1.. ok 0..err    */
++{
++  int rc = 0;
++  char *q;
++  struct tm tim;
++  memset (s, 0, sizeof (*s));
++  memset (&tim, 0, sizeof (tim));
++  q = strtok (p, " \t");
++  if (q) {
++    s->st_size = atoi (q);
++    q = strtok (0, " -\t");
++    if (q) {
++      if(!isdigit(*q)){
++         if (!strcmp (q, "DIR"))
++	  s->st_mode |= S_IFDIR | 0777;
++         else
++	  s->st_mode = S_IFREG | (strchr (q, 'R') ? 0444 : 0666);
++         q = strtok (0, " -\t");
++      } else
++	  s->st_mode = S_IFREG | 0666;
++      if (q) {
++	tim.tm_mon = atoi (q) - 1;
++	q = strtok (0, " -\t");
++	if (q) {
++	  tim.tm_mday = atoi (q);
++	  q = strtok (0, " \t");
++	  if (q) {
++	    tim.tm_year = atoi (q);
++	    q = strtok (0, " :\t");
++	    if (q) {
++	      tim.tm_hour = atoi (q);
++	      q = strtok (0, " \t");
++	      if (q) {
++		tim.tm_min = atoi (q);
++		q = strtok (0, " \t\r\n");
++		if (q) {
++		  if (filename)
++		    *filename = strdup (q);
++		  if (linkname)
++		    *linkname = NULL;
++		  if ((q = strrchr (*filename, '.')) != 0) {
++		    q = strdup (q + 1);
++		    if (!strcasecmp (q, "exe") || !strcasecmp (q, "cmd") || 
++                                                  !strcasecmp (q, "bat"))
++		      s->st_mode |= 0111;
++		    free (q);
++		  }
++		  s->st_nlink = 1;
++		  s->st_atime = mktime (&tim);
++		  if (s->st_atime == -1)
++		    s->st_atime = 0;
++		  s->st_mtime = s->st_ctime = s->st_atime;
++		  rc = 1;
++		}
++	      }
++	    }
++	  }
++	}
++      }
++    }
++  };
++  return rc;
++}
++#endif /* HETER_NET */
++
++
+ int
+ vfs_parse_ls_lga (char *p, struct stat *s, char **filename, char **linkname)
+ {
+@@ -1514,7 +1669,15 @@
+ 
+     p_copy = strdup(p);
+     if ((i = vfs_parse_filetype(*(p++))) == -1)
++#ifdef HETER_NET /* Should parse here the IBM ftp server format ;) */
++      { if (parse_ls_lga_os2 (p, s, filename, linkname))
++           return 1;
++       /*  if(parse_ls_lga_???... for other non standard formats   */
++        goto error;
++      }
++#else
+         goto error;
++#endif
+ 
+     s->st_mode = i;
+     if (*p == '['){
+diff -Naur mc-4.5.4/vfs/vfs.h mc-4.5.4.emx/vfs/vfs.h
+--- mc-4.5.4/vfs/vfs.h	Wed Dec 30 11:50:36 1998
++++ mc-4.5.4.emx/vfs/vfs.h	Fri Jan  1 19:58:18 1999
+@@ -82,6 +82,10 @@
+ 	int  (*fstat)  	       (void *vfs_info, struct stat *buf);
+ 			       
+ 	int  (*chmod)  	       (vfs *me, char *path, int mode);
++#ifdef HETER_NET
++	int  (*setattrib)      (vfs *me, char *path, int attr);
++	int  (*getattrib)      (vfs *me, char *path, int *attr);
++#endif
+ 	int  (*chown)  	       (vfs *me, char *path, int owner, int group);
+ 	int  (*utime)  	       (vfs *me, char *path, struct utimbuf *times);
+ 			       
+@@ -201,6 +205,10 @@
+ 	int mc_fstat (int fd, struct stat *buf);
+ 
+ 	int mc_chmod    (char *path, int mode);
++#ifdef HETER_NET
++        int mc_setattrib(char *path, int  attr);
++        int mc_getattrib(char *path, int *attr);
++#endif
+ 	int mc_chown    (char *path, int owner, int group);
+ 	int mc_utime    (char *path, struct utimbuf *times);
+ 	int mc_readlink (char *path, char *buf, int bufsiz);
