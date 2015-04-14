@@ -1,0 +1,735 @@
+Fri Dec 25 21:48:51 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* direntry.c (vfs_s_new_inode): Moved initialization of st_ino
+	and st_dev from vfs_s_default_stat.
+
+	(vfs_s_default_stat): initialize st_ino and st_dev to zero
+
+	* tar.c (tar_open_archive): Make a new MEDATA->rdev for every
+	new archive.
+
+Mon Dec 21 22:55:48 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* tar.c: Deleted global variable tar_gzipped_memlimit.
+
+Wed Dec 16 06:36:42 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* vfs.c (vfs_strip_suffix_from_filename): New function which strips
+	known vfs suffixes from a filename and returns a malloced string
+	which has to be freed. Possible improvement: strip vfs suffix from
+	last path component.
+
+	* extfs/*: added "umask 077" to every script.
+
+Tue Dec 15 16:41:50 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* extfs.c (extfs_open), sfs.c (redirect): create files 0600 and
+ 	safely w.r.t. symlinks in /tmp
+
+Mon Nov 30 23:49:11 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* direntry.c: Hopefully got want_stale_data right...
+
+Wed Nov 25 23:54:23 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* vfs.h: use ENETUNREACH if EREMOTEIO error code is not defined,
+ 	this is neccessary for Solaris and probably others
+
+Mon Nov 23 17:39:33 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* vfs.c (vfs_type_from_op): removing unneccessary code
+
+Wed Dec  9 12:24:52 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* extfs/rpm: commit fix for files with spaces in name by Marc
+ 	Merlin (marcsoft@merlins.org)
+
+Mon Dec  7 11:04:57 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* fish.c: default to normal ssh
+	(open_archive_int): debugging hack killed
+
+1998-12-02  Raja R Harinath  <harinath@cs.umn.edu>
+
+	* Makefile.am (EXTRA_DIST): Distribute files that the
+	BUILT_SOURCES depend on.
+	(mad.c, mad.h): Don't use GNU make specific features in rule.
+	(libvfs_la_SOURCES): Update from Make-mc.in.
+
+1998-12-02  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* direntry.c (vfs_s_insert_super): This routine does not return
+	anything. 
+
+1998-12-02  Sebastian Wilhelmi  <wilhelmi@ira.uka.de>
+
+	* fish.c (FISH_OP): changed snprintf to g_snprintf, as glib is
+	used anyway.
+
+	* xdirentry.h (LINK_NO_FOLLOW): 
+	* tar.c (read_header): 
+	* direntry.c (vfs_s_resolve_symlink):
+	(vfs_s_inode_from_path):
+	(vfs_s_open): renamed NO_FOLLOW and FOLLOW to LINK_NO_FOLLOW and
+	LINK_FOLLOW resp. to avoid problems on solaris, where FOLLOW and
+	NO_FOLLOW are defined in an enum.
+
+	* vfs.h (ELAST): define it to 300, if not already defined, thats a
+	bad hack, but what can we do....
+
+Wed Dec  2 14:06:49 KST 1998  Sung-Hyun Nam  <namsh@lgic.co.kr>
+
+	* direntry.c (vfs_s_new_super): Added the missing return value.
+
+Sun Nov 29 02:54:54 1998  Timur I. Bakeyev <timur@com.bat.ru>
+
+	* vfs.h: (Temporary?) fix to the compiling error: Some of the error
+	codes, defined here are Linux specific and unknown to other systems.
+	Changed to #ifdef's with assigning new codes by means ELAST+offset.
+	
+Tue 24 Nov 12:43:20 1998  Peter Kleiweg  <kleiweg@let.rug.nl>
+
+	* vfs.c (vfs_parse_ls_lga): ignore trailing + in permission string
+	which indicate a file with extented attributes (ACL)
+
+Mon Nov 23 21:19:43 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* ftpfs.c (resolve_symlink_with_ls_options): that's resolve_symlinks
+	we used up to release 4.1.35. It uses LIST -lLa to get symlink stats.
+
+	(resolve_symlink_without_ls_options): that's resolve_symlinks
+	we used in release 4.1.36 and 4.5.[01]. It gets symlink stats from the
+	directory cache fetching directories if necessary. We got some 
+	complaints about slower ftpfs in the above releases. Now this methode
+	is no longer the default methode to resolve symbolic links. It is still
+	needed for ftp servers which don't understand the LIST -lLa command.
+	
+	(resolve_symlink): Dispatch between the two methods to
+	resolve symlinks.
+
+Sat Nov 21 21:38:08 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* vfs.c (vfs_parse_ls_lga): corrected stupid bug in parse_ls_lga,
+ 	thanks to Pavel Roskin for reporting
+
+	* direntry.c (vfs_s_lseek): -1 is invalid filehandle, not 0
+
+	* utilvfs.c (vfs_split_url): initialize variables so that we do
+ 	not return garbage
+
+Sat Nov  7 20:19:14 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* vfs.c: Converted g_return_if_fail into vfs_dies(), removed them
+ 	where unneccessary. I do not see why passing NULL to vfs_add_stamp
+ 	should be invalid -> removed check.
+
+Mon Nov  2 23:09:55 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* direntry.c, xdirentry.h: should be now prepared to handle
+ 	ftp-like filesystems. This is rather BIG change, altrough it does
+ 	not look so. I hope I do not break too many things.
+
+Mon Nov 16 16:39:39 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* vfs.c (vfs_parse_ls_lga): Report unrecognized lines.
+
+Thu Nov 12 11:28:48 1998  Pavel Roskin  <pavel_roskin@geocities.com>
+
+	* extfs/rpm: Fix to display files belonging to users with
+	excessively long usernames
+
+1998-10-30  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* fish.c (command): Replace vnsprintf with g_strdup_vprintf.  This
+	is both safe and more correct, as there is no limit on the
+	pathname. 
+	
+	* ftpfs.c (command): Same as above.
+
+	* util-alone.c (print_vfs_message): Same as above.
+	
+Wed Oct 28 17:06:57 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* ftpfs.c: report which directory you are listing, fix behaviour
+ 	with servers that don't like LIST //. (Nowell) Fix behaviour even
+ 	with NT.
+
+	* direntry.c (vfs_s_automake): insert newly generated entry
+
+	* direntry.c (vfs_s_free_entry): Debugging printf() killed.
+
+Mon Oct 26 00:38:30 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* Make-mc.in: added xdirentry.h to VFSHDRS
+
+Fri Oct 23 12:29:48 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* tar.c (tar_open_archive): do not double-free memory if you can
+ 	not open archive, better error handling
+
+	* Makefile.in: add direntry.o to list of NONETFILES so we actually compile
+
+	* sfs.c, tar.c: remove debugging messages (which really should not
+ 	escape from my tree)
+
+Thu Oct 22 22:24:44 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* README: added. If you are using emacs or hacking libvfs, please
+ 	read this one.
+
+	* direntry.{c,h}: new library created, so that same entry/inode
+ 	code does not have to be copied in every handler. 
+
+	* tar.c: converted to use direntry.c library, which means BIG changes. 
+
+	* ftpfs.c: small updates to make code look nicer
+	
+Mon Oct 19 19:40:58 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* vfs.h (&more): killed ERRNOR() from vfs.h and put it into files
+ 	which actually need it.
+
+	* extfs.c: extfs_current_dir killed - it was unneccessary.
+
+	* mcfs.c (mcfs_get_path): It is possible for path not to begin
+ 	with /#mc:, for example if user does /etc/#mc:. (It is not
+ 	correct, of course). Return error, but do not vfs_die().
+
+Sun Oct 18 23:48:00 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* lib/mc.ext.in: cpio support fixed. It was broken since time we
+ 	started to do #ext syntax.
+
+Sat Oct 17 20:43:20 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* vfs.c (mc_open): die() if open is unsupported. If filesytem does
+ 	not support open, it is probably stupid typo, so we want bug to be
+ 	fixed.
+
+Thu Oct 22 20:30:28 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* ftpfs.c (resolve_symlink, retrieve_dir): Don't timeout and
+	free dcache while resolving symlinks (i.e. don't free some
+	pointers which are in use by resolve_symlink). 
+
+Mon Oct 19 11:44:47 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* mcfs.c: prefix is mc:, not mcfs:. So now mcfs actually works.
+
+Thu Oct 15 17:17:17 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* shared_ftp_fish.c (s_write): stupid bug fixed
+
+Tue Oct 13 00:22:52 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* extfs/*: marked obvious security holes with FIXME: TMP RACE
+
+	* vfs.c (mc_def_getlocalcopy): creat->open(..,O_EXCL), to prevent
+ 	symlink attack, fixed memory leak along the path
+
+1998-10-13  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* vfs.c, vfs.h: Indentation chages, ugly macros removed.  I am
+	going to split this file in the future.
+
+Tue Oct 13 18:43:18 1998  Pavel Machek  <pavel@lomikel.karlin.mff.cuni.cz>
+
+	* vfs.c (vfs_add_noncurrent_stamps): Fixed typo reported by Andrej
+ 	Borsenkow <borsenkow.msk@sni.de>
+
+Tue Oct 13 12:42:10 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* vfs.h (vfs_struct): renamed to avoid namespace conflict
+
+Mon Oct 12 22:42:30 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* sfs.c: reuse mmap from local.c
+
+	* ftpfs.c, fish.c, shared_ftp_fish.c: horrible reget hack removed,
+ 	and replaced with open(,O_LINEAR); lseek() combination
+
+Sun Oct 11 01:44:37 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* mcfs.c (open_tcp_link): Moved: it used to be in utilvfs.c, but
+ 	as it deals with portmapper, it is probably usefull for mcfs
+
+	* vfs.h (MCERR_*): these are no longer needed
+
+	* vfs.c (vfs_translate_url): translating of url's moved to vfs
+ 	code
+
+	* all around: trying to reduce namespace pollution. All special
+ 	functions (like extfs_run) should be done using mc_setctl()
+ 	interface. At the end, all non-static functions in vfs layer
+ 	should begin with vfs_ and should be declared in vfs.h (however
+ 	that goal is far away).
+
+	* all over the code: replace X_vfs_ops to vfs_X_ops
+	
+Mon Oct  5 20:11:01 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* vfs.c: added stat to avoid hiding files by naming them
+ 	#ftp:localhost and similar. Vfs will not treat files as local if
+ 	they already exists, regardless of name.
+
+Tue Oct  6 15:34:22 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* vfs.h: disable BROKEN_PATHS by default. See if you can live
+ 	without cd .. from ftp tree putting you to last directory.
+
+Sat Oct  3 14:28:57 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* ftpfs.c (resolve_symlink): fixed cut'n paste error in my last
+	change, i.e. make it compile)
+	
+Sat Oct  3 01:03:37 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* ftpfs.c (resolve_symlink): minor speed enhancement
+
+Thu Oct  1 18:39:52 1998  Pavel Roskin  <pavel_roskin@geocities.com>
+
+	* vfs.h: vfs_force_expire() was incorrectly #define'd
+
+Tue Sep 29 17:23:03 1998  Pavel Machek  <pavel@atrey.karlin.mff.cuni.cz>
+
+	* extfs.c, sfs.c: added few static's to prevent people from doing
+ 	stupid things
+
+Mon Sep 28 21:43:16 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* vfs.h (struct vfs): renamed errno to verrno because glibc2 
+	defines errno as macro (#define errno (*__errno_location ()))
+
+Mon Sep 28 21:34:03 1998  Norbert Warmuth  <nwarmuth@privat.circular.de>
+
+	* Makefile.in: search config.status in builddir and not in srcdir/.., 
+	i. e. make it compile for builddir != srcdir
+
+Sun Sep 27 16:16:52 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* COPYING.LGPL, all over the code: code is now under Library
+ 	General Public License (instead of GPL), so non-free applications
+ 	can link to it.
+
+Wed Sep 23 22:37:40 1998  Pavel Machek  <pavel@bug.ucw.cz>
+
+	* all over the code: added (vfs *) as first argument for functions
+ 	that have no other way to know what fs they belong to. This will
+ 	be used by object-like tricks, which will allow us to do real
+ 	code-sharing: I do not like #including of .c files.
+
+1998-09-25  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* shared_ftp_fish.c: Addaed prototypes for linear_start, linear_read,
+	linear_close 
+
+Wed Sep 23 15:09:55 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* vfs.h (MIN, MAX): Only define if not already defined; glib.h
+	also defines them.
+
+Wed Sep 23 13:33:14 1998  Pavel Machek <pavel@ucw.cz>
+
+	* ftpfs.c: Fixed segfault caused by unitialized varialble 
+
+Wed Sep 23 11:51:12 1998  Pavel Roskin <pavel_roskin@geocities.com)
+
+	* ftpfs.c: Special characters were printed via print_vfs_message.
+	This caused funny effects if "XTerm hintbar" was on.
+
+Mon Sep 21 11:40:30 1998  Pavel Machek <pavel@ucw.cz>
+	
+	* ftpfs.c, fish.c: added O_LINEAR mode to handle linear read of
+ 	files in sane way. copy_file_file will make temporary files for a
+ 	while (fix pending).
+
+	* tar.c: fixed bzip/bzip2 compressed archives
+
+Wed Sep 18 12:51:51 1998  Pavel Machek <pavel@ucw.cz>
+	
+	* fish.c, vfs.c: created aliases /#ssh: and /#rsh:
+
+	* vfs.h: created ERRNOR() macro which sets my_errno and returns,
+ 	which makes vfs's _much_ more readable
+
+Fri Sep 18 10:37:28 1998  Pavel Roskin <pavel_roskin@geocities.com)
+
+	* extfs.c: free() was called twice for the same place in memory
+	in extfs_open()
+
+Tue Sep 15 20:31:32 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* ftpfs.c (ftp_use_unix_list_options): New global variable/option. 
+	If true we try to use 'LIST -la <path>'. When it fails we use the 
+	two commands 'CWD <path>' and 'LIST' instead. 
+ 
+	(resolve_symlink): rewritten. Don't get a second directory listing 
+	with `LIST -lLa'. Instead use the cache to get the file stat of
+	symbolic links. If the directory the symlink points to isn't
+	already in the cache the directory listing will be fetched and 
+	stored in the directory cache (without resolving symlinks
+	recursively).
+ 	The new method to resolve symlinks is faster if symlinks
+	the same directory or the directory the symlink points to
+	is already in the cache.
+	This function was small and nice until I discovered that it was
+	broken for symlinks to symlinks. Now it looks ugly and perhaps I
+	will revert it to use "LIST -lLa" again. With a fast connection it 
+	doesn't matter which methode we use but with a slow connection I
+	wouldn't hesitate to burn more cpu cycles on the client side.
+
+	(retrieve_dir): Added parameter to tell whether to resolve
+	symlinks (don't resolve symlinks in directory listings retrieved 
+	while resolving symlinks).
+	When we don't get a directory listing with 'LIST -la <path>' then
+	try to get it with `CWD <path>; LIST'.
+
+Tue Sep 15 20:27:29 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* ftpfs.c (login_server): s/ftpfs_get_host/my_get_host/
+	
+	(retrieve_file_start2): Don't create target file O_EXCL, in 
+	copy_file_file we check existance of the target file and know
+	that we want to truncate it (this change was already done a 
+	while back but it was reverted with the vfs-split).
+
+Tue Sep 15 20:15:42 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* ftpfs.h (struct connection): added boolean which indicates that
+	the ftp server doesn't understand Unix ls options
+
+	* ftpfs.h (struct dir): added enum to store symlink status of the
+	in memory directory cache (directory has no symbolic links;
+	symbolic links but not yet resolved; symbolic links which are resolved)
+
+Tue Sep 15 20:02:08 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* shared_ftp_fish.c, fish.c: updated references to retrieve_dir to
+	honour the additional boolean parameter
+
+Tue Sep 15 00:42:15 1998  Timur Bakeyev <mc@bat.ru>
+
+	* vfs.h: add vfs_split() declaration, to make sfs.c happy.
+
+	* Make-mc.in, Makefile.am: Updated to include fish.c
+
+1998-09-14  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* sfs.c (sfs_free): assignment operator was used to check for equality
+
+Fri Sep 11 22:36:38 1998  Pavel Machek <pavel@ucw.cz>
+
+	* sfs.c: memory leak fixed
+
+	* vfs.c: split parse_ls_lga into more functions
+
+	* fish.c added, now you can access files over rsh/ssh connection
+
+	* shared*.c: reworked a bit not to include so many of ugly X_'s
+
+Wed Sep  2 13:59:47 1998  Pavel Machek <pavel@ucw.cz>
+
+	* ftpfs.c: cleanup of code, few static's added
+
+	* extfs/uarj: added, still, you need patches to unarj to make this
+ 	work
+
+	* util-alone.c: now includes code from libvfs.c, so we can kill
+ 	libvfs.c (which is good thing as it was non-standard in Makefiles)
+	
+Sun Aug 30 13:19:49 1998  Pavel Machek <pavel@ucw.cz>
+
+	* undelfs.c: fixed, it has been broken for too long
+
+	* vfs.c, ../src/cmd.c: neccessary minor fixes to make undelfs work
+
+	* vfs.c: made more fields in *_vfs_ops optional, cleanup of errno
+ 	handling in case of NULL in *_vfs_ops.
+
+	* extfs.c, ftpfs.c, tar.c: made use of above change
+
+	* vfs.c: cleanup of macros generating mc_*()
+
+	* libvfs.c: adding variable mc_home
+
+Thu Aug 27 19:45:31 1998  Pavel Roskin <pavel_roskin@geocities.com>
+
+	* extfs.c: mc_extfsdir was not defined in extfs_open()
+
+	* Make-mc.in: sfs.c was not compiled, linked and copied out
+	extfs/sfs.ini was not installed and copied out
+
+	* Makefile.am: sfs.c was not linked to standalone VFS
+
+Tue Aug 25 17:54:17 1998  Pavel Machek <pavel@ucw.cz>
+	
+	* Added vfs_uid for use by libvfs.so users (rpc.nfsd)
+
+	* Added single file filesystem (sfs)
+
+	* Added vfs_flags so library users can disable selected
+ 	filesystems
+
+	* Minor shuffling of functions so garbage collection works for
+ 	library
+	
+1998-08-20  Raja R Harinath  <harinath@cs.umn.edu>
+
+	* Makefile.am (mad.c, mad.h): Create symlinks to counterparts in
+	`mc-src'. 
+
+Wed Aug 12 19:04:48 1998  Pavel Roskin <pavel_roskin@geocities.com>
+
+	* extfs/patchfs: %k replaced with more portable %H in the format
+	for "date" command
+
+	* extfs/extfs.ini: Added patchfs and mailfs. Some comments
+	changed
+
+Tue Aug 11 15:25:52 1998  Pavel Roskin <pavel_roskin@geocities.com>
+
+	* extfs/rpm: Fix for buggy "cut" on HP-UX 10.20 which ignores
+	lines without enf-of-line.
+
+Mon Jun 01 03:30:07 1998  Alexander Savelyev <fano@vcom.kiev.ua>
+
+	* tar.c (read_header): Support for linkflag on BSDI tar (pax), it
+	is always 0.
+
+1998-06-22  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* ftpfs.c (ftpfs_open_socket): Potential security break fix.
+
+1998-08-06  Raja R Harinath  <harinath@cs.umn.edu>
+
+	* Makefile.am (BUILT_SOURCES): Make it `make dist' friendly.
+	Don't try building this, yet.
+
+1998-07-31  Nuno Ferreira  <nmrf@rnl.ist.utl.pt>
+
+	* Make-mc.in (install.extfs): Splitted install of $(EXTFS_CONST)
+	and $(EXTFS_OUT) because the first must be installed from
+	$(srcdir) and the second from $(builddir).
+
+Fri Jul 24 00:22:30 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* Make-mc.in (DISTVFS): Changed Makefile.in to Make-mc.in.
+
+	* Makefile.am: New file.
+	* Make-mc.in: Renamed from Makefile.in.
+	* Makefile.in: Removed.
+
+Mon Jun 29 15:12:55 1998  Pavel Roskin <pavel_roskin@geocities.com>
+
+	* Makefile.in: Rewritten stuff concerning extfs files.
+
+Mon Jun 22 22:30:00 1998  Manish Vachharajani <mvachhar@vger.rutgers.edu>
+
+	* Makefile.in: Remove arfs, since it doesn't seem to exist
+
+Wed Jun 17 Pavel Machek <pavel@ucw.cz>
+	* Rename helper scripts (extfs/{rar|lha|...}.in), so their names
+	are more logical (and so that things actually work, because new
+	names are currently in extfs.ini). 
+	
+Wed Jun 17 Pavel Machek <pavel@ucw.cz>
+	* Modified code to use tempnam() instead of tmpnam(), fixed
+	tempnam() to use NULL instead of 0. 
+
+Wed Jun  3 Pavel Machek <pavel@ucw.cz>
+
+	* libvfs.c: adding libvfs.c which should contain things specific
+ 	to stand-alone libvfs.so. (This file was missing from previous
+ 	merge.)
+	
+Mon Jun  1 16:00:19 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* ftpfs.c (ftpfs_fill_names): use right character to seperate
+	prefix and username
+
+Mon Jun  1 14:19:20 1998  Bakeyev I. Timur <timur@comtat.kazan.ru>
+	* vfs.c (parse_ls_lga): allow a bit wider range of listings.
+
+	* vfs.c (is_time, is_year): new functions
+
+Mon Jun  1 12:47:50 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* ftpfs.c (ftpfs_forget): Use the new ftpfs prefix.
+
+Thu May 28 16:42:31 1998  Pavel Machek <pavel@ucw.cz>
+
+	* extfs.c, shared.c, tar.c: I changed semantics in my previous
+	patch - _get_path() now modifies strings passed to it. I thought
+	that I were carefull enough not to introduce bugs. You guessed it -
+	I was not. [Many tar_ and extfs_ functions modify strings passed 
+	to them, but as they are only called from vfs layer, it does not 
+	matter much.]
+	So I renamed function to alert everyone that semantics changed. 
+
+	Fixed bugs in timestamping (and segfaults) when you entered tar 
+	inside zip file or similar.
+
+	* vfs.c (mc_open): Die if the filesystem doesn't support open
+
+???         Pavel Machek <pavel@ucw.cz>
+	
+	* shared.c: Shared parts of extfs.c and tar.c are now in shared.c
+
+	* util-alone.*: VFS should be able to compile stand-alone into
+ 	libvfs.so usable by anyone. This is first step.
+
+	* vfs.c & others: syntax change. We no longer use
+ 	tar:/path.tar/file. Now, syntax is /path.tar#utar/file, which has
+ 	better defined meaning. Similar changes are done to all other
+ 	protocols. This change touched really _many_ places of code.
+
+
+1998-05-26  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* vfs.c (MC_DIROP): Macro now returns the proper value. 
+
+1998-maj-18  Tamasi Gyorgy (gt_cosy@usa.net)
+
+	* Makefile.in ('install' target): 'mcserv' not installed, if
+	net-code is not enabled by 'configure'.
+
+Thu May 14 02:05:52 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* Makefile.in (LIBS): add @LINTL@
+
+Sun May 10 14:51:03 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* ftpfs.c (__ftpfs_chdir): CWD command wasn't sent at all. This
+	optimation is wrong because for directories containing spaces we
+	have to "CWD <pathname>" and "LIST -la" instead of 
+	"LIST -la <pathname>".
+	I implemented a different optimation. Now ftpfs_chdir only stores
+	the new working directory and sets a flag. __ftpfs_chdir is called 
+	when we really want to change the directory on the ftp server. 
+
+	(resolve_symlink): Log the directory listing to the logfile.
+
+	* ftpfs.h (struct ftpfs_connection): Added a (per connection)
+	cwd_defered flag.
+
+Mon May  4 10:27:49 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* Makefile.in: Links to mad.c and mad.h were created wrong when
+	srcdir != builddir and directory depth to srcdir and builddir were 
+	different (e.g. srcdir=/src/mc and builddir=/src/compile/mc)
+
+	* ftpfs.c (retrieve_file_start2): Don't create target file O_EXCL, 
+	in copy_file_file we check existance of the target file and know
+	that we want to truncate it.
+
+1998-04-29  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* tar.c (read_header): Mark regular files with S_IFREG.
+
+Tue Apr 28 06:06:03 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* extfs.c (extfs_open, extfs_close): Changed my_system(1,...) to
+	my_system(EXECUTE_AS_SHELL,...), this fixes the broken copyin and
+	copyout of 4.1.32.
+	
+1998-04-23  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* ftpfs.c (retrieve_file_start2): Open file exclusively.
+	(retrieve_file): likewise.
+
+1998-03-31  Philippe De Muyter <phdm@macqel.be>
+
+	* vfs.h: compilation fix for m68k-motorola-sysv
+
+Wed Mar 25 19:01:48 1998  Norbert Warmuth  <k3190@fh-sw.de>
+
+	* extfs/hp48: Added a usage summary
+
+Mon Mar 23 00:42:21 1998  Christofer Edvardsen <ce@earthling.net>
+
+	* Makefile.in, extfs/extfs.ini, extfs/hp48: New external
+	filesystem to view and copy files to/from the HP48.
+
+Wed Feb 11 14:09:02 1998  Oleg <oleg@pobox.com>
+
+	* extfs.c: Add support for writtable external file systems.
+	Required for the httpfs. 
+
+Fri Jan 23 07:27:37 1998  Peter Daum <gator@cs.tu-berlin.de>
+
+	* extfs.c (open_extfs_archive): Pass the quoted argument to the
+	list command. 
+
+	* mailfs: new file system.
+	
+1997-12-21  Yuri Kuzmenko <Yuri.Kuzmenko@f169.n463.z2.fidonet.org>
+
+        * tar.c: fix the bug which core dumps when trying to view tar file
+        with many files (over 60000).
+
+Mon Jul 21 18:47:37 1997  Miguel de Icaza  <miguel@athena.nuclecu.unam.mx>
+
+	* vfs.c (mc_opendir): Do not make conversions between int/void *
+	to make the code compile and work on the Alpha correctly.
+	Allocate a pointer to an int and use that instead.
+
+Thu Jul  3 19:08:43 1997  Michele Marziani <marziani@axpfe1.fe.infn.it>
+
+	* extfs/rpm: Small fix for older RPM files.
+
+Mon Jun  9 19:00:30 1997  Norbert Warmuth <k3190@fh-sw.de>
+	
+	* vfs/vfs.c (vfs_canon): Fix for the 'cd a:/somedir/..' problem
+
+        * vfs/vfs.c (vfs_add_non_current_stamps): when leaving a mtools fs
+        free the extfs buffers immediatly instead of waiting for the vfs-
+        timeout
+
+Thu May 29 14:50:41 1997  Miguel de Icaza  <miguel@athena.nuclecu.unam.mx>
+
+	* vfs.c (vfs_canon): the "local:" case was consuming one extra
+	character.  This fixes the bug reported by Andrej.  Also, handle
+	the non-canonical case of arguments to  local:
+
+Tue May 27 20:38:28 1997  Miguel de Icaza  <miguel@athena.nuclecu.unam.mx>
+
+	* mcserv.c (get_client): The parent now waits for the first forked
+	process, getting rid of the zombies.
+
+	* utilvfs.c (open_tcp_link): If we can not contact the remote
+	portmapper, set the protocol version to 1.
+
+Fri May 16 16:42:18 1997  Tomasz K³oczko, <kloczek@rudy.mif.pg.gda.pl>
+
+	* mc.spec: New spec file, this packages mc, mcserv and tkmc.
+
+	* lib/mcserv.init, lib/mc.sh, lib/mcserv.pamd: added
+	
+	* vfs/ext/rpm: instead using sed and rpm -qpi use rpm queries,
+	more info currently displayed (changeslogs, Os, URL, packager 
+
+Tue May 13 18:14:49 1997  Wojtek Pilorz <wpilorz@bdk.lublin.pl>
+
+	* vfs/Makefile.in (INSTALL_PROGRAM): Use -m flag for install to
+	force vfs scripts to be executable on those systems that use
+	install.sh 
+
+	* src/utilunix.c: Implement socketpair for SCO flavored systems.
+	
+Mon Mar 17 12:03:50 1997  Norbert Warmuth <k3190@fh-sw.de>
+
+	* configure.in (--with-hsc): fix.
+	
+        * vfs/ftpfs.c (ftpfs_get_proxy_host_and_port): Fixed wrong parameter
+        passing (HSC_DEFAULT_PORT was passed as pointer to char instead of
+        passing it as integer)
+ 
+Tue Feb 25 20:21:00 1997  Joseph M. Hinkle <jhinkle@rockisland.com>
+
+	* extfs/lha: Updated the lha filesystem and included a command
+	for running an executable from within an lha archive suggested
+	by Zdenek Kabelac <kabi@informatics.muni.cz>
+
+	* extfs/: Renamed cpio, deb, rar, rpm as *.in files and altered
+	config.in to create these VFS's for cleaner compilation 
+	

@@ -1,0 +1,170 @@
+                  Memory Mapped Files Emulation Layer v1.00
+                  (c) 1998 Maurilio Longo - md2520@mclink.it
+
+                                   - * -
+
+This is a brief document about mmap.dll, if you don't know what memory mapped
+files are then this .dll is not for you :-)
+
+This .dll is freeware (you can use and redistribute it whitout any charge) but
+I retain all rights upon it. Standard disclaimer applies :-) i.e. I'm not
+responsible for any damages arising from its use or misuse.
+
+                           USE IT AT YOUR OWN RISK.
+
+This .dll provides ANSI C compliant mmap() services to OS/2 processes. It is
+intended as a tool for programmers porting unix software to OS/2 and / or for
+programmers developing native OS/2 programs.
+
+It is already used on mSLQ 2 (actually it was developed for mSQL 2). You can find
+more info about mSQL at this address: http://blnet.com/msqlpc/
+
+
+In this package you'll find several files:
+
+mmap.dll    :  the emulation layer, it should go on a directory listed on your
+               LIBPATH;
+mmap.lib    :  import library for OMF linker (like link386.exe);
+mmap.a      :  import library for EMX/GCC ld.exe (a.out format);
+mman.h      :  include file for C programmers;
+mmap.txt    :  this text file you're already reading :-)
+
+
+Since it is an *emulation* of mmap() services it has a few restrictions/limits
+that you should be aware of and care:
+
+1) You can have only one mapped region per file, this is a limit which will be
+   rised on a future release.
+
+2) You cannot share a mapped region between processes (or address spaces), this
+   is a permanent restriction arising from the fact that mmap.dll runs with
+   user privileges and needs to be able to commit / decommit memory pages.
+
+3) It suports a maximum of 64 threads per process accessing mmap() services.
+   This limit can be changed but, at the moment, there is no reason to increase
+   it. If you need to use more than 64 threads, please let me know.
+
+4) You cannot mmap() more than 300 / 350 Mb per process, this is a limit of
+   OS/2 which should be rised in the upcoming OS/2 5. This version of mmap.dll
+   can handle a maximum of 2Gb of mapped memory per process.
+
+5) All standard flags of mman.h are defined but not used. You cannot protect or
+   lock memory regions and you should not rely on access flags. All mapped pages
+   are read only until a write access occurs. This is a permanent restriction.
+
+6) msync() is always synchronous and should be called from time to time to
+   sync modified pages to disk. If you never call it syncing will be done at
+   the time of munmap() call.
+
+7) There is a non-standard constant MS_MUNMAP (0x10) which is used by munmap()
+   to signal to msync() that it has been called by munmap(). This makes msync()
+   faster.
+
+8) There is a non-standard function merror() which returns last error of calling
+   thread (and resets it).
+
+9) I've only tested it with OS/2 Warp 4 (ita, fp 6) but it should work with
+   OS/2 Warp 3 as well. If you can test it with OS/2 2 or OS/2 Warp Server
+   (Standard or Advanced) please let me know whether it works.
+
+
+The mmap() emulation dll exports the following functions (here listed using 
+pascal notation since this library has been developed with VirtualPascal/2 v1.1):
+
+Type
+   caddr_t  =  Pointer;             // C types for mmap functions
+   off_t    =  longint;
+   size_t   =  longint;
+   int      =  longint;
+
+// Returns size in bytes of a memory page
+function getpagesize: int;
+
+// Stub function, returns -1 and sets merror to EAGAIN
+function mprotect(pAddr: caddr_t;  cbLen, fProtection: int): int;
+
+// Stub function, returns -1 and sets merror to EAGAIN
+function mlockall(fFlags: int): int;
+
+// Maps a file to a range of addresses in memory.
+// pAddr must be 0, otherwise call fails
+// cbLen is dimension of region of file to map
+// fProtection is here only for compatibility, all pages are readonly and become read/write after a
+//             write access to them
+// hFile is the handle of mapping file; only one mapping region is available as of version 1.0 of mmap.dll
+// cbOffest position in file from which mapping starts
+// if something goes wrong it returns -1 and sets merror to appropriate error code
+function mmap(pAddr: caddr_t; cbLen: size_t; fProtection, fFlags, hFile: int; cbOffset: off_t): caddr_t;
+
+// Synchronizes pages accessed with a write operation to file, after synchronization pages are converted to
+// readonly access; pages with readonly access are decomitted.
+// It accepts starting address and len of a mapped region. fFlags is not used but for value
+// MS_UNMAP which tells msync that is being called by munmap and so decommitting of readonly pages
+// is not necessary.
+function msync(pAddr: caddr_t; cbLen: size_t; fFlags: int): int;
+
+// Stub function, always returns 0
+function munlockall: int;
+
+// Unmaps a previously mapped region and syncs it to file if necessary
+function munmap(pAddr: caddr_t; cbLen: size_t): int;
+
+// Returns, and clears, last error of calling thread
+function merror: int;
+
+
+merror() returns last error occurred to calling thread and clears it; defined
+errors are as follows:
+
+EPERM          =     1;              // Operation not permitted
+EIO            =     5;              // Input/output error
+ENXIO          =     6;              // Device not configured
+EBADF          =     9;              // Bad file descriptor
+ENOMEM         =     12;             // Cannot allocate memory
+EACCES         =     13;             // Permission denied
+EBUSY          =     16;             // Device busy
+ENODEV         =     19;             // Operation not supported by device
+EINVAL         =     22;             // Invalid argument
+EMFILE         =     24;             // Too many open files
+EAGAIN         =     35;             // Resource temporarily unavailable
+
+
+This library defines standard flags for mmap(), msync() and munmap() but does
+not use them; so you should not rely on them but at the same time they are
+reserved for future use.
+
+HAVE_MSYNC     =     1;          // msync available
+PROT_READ      =     $0001;      // read only access - not used
+PROT_WRITE     =     $0002;      // write access     - not used
+PROT_EXEC      =     $0004;      // execute access   - not used
+PROT_NONE      =     $0000;      // no access        - not used
+
+MAP_SHARED     =     1;          // shared mapping   - not supported
+MAP_PRIVATE    =     2;          // private mapping  - all mappings are private only
+MAP_FIXED      =     $10;        // fixed address    - not supported
+
+MCL_CURRENT    =     $1;         // locking options not supported
+MCL_FUTURE     =     $2;
+
+MS_ASYNC       =     $1;         // all syncing is synchronous so it is not used
+MS_INVALIDATE  =     $2;         //                  - not supported
+MS_MUNMAP      =     $10;        // Used by munmap() when calling msync()
+
+
+It's possible to set an environment variable to force the mmap.dll to show infos 
+about its inner workings. To enable this capability use
+
+SET MMAPDLL=DEBUG
+
+before starting any process which will use mmap() services.
+
+It's possible to find a more detailed documentation about memory mapped files
+at this address http://hots.stsci.edu/man/man2/mmap.html but please bear in
+mind that those are pages about linux / freebsd memory mapped services so they
+list capabilities and functions not available with my emulation.
+
+Ok, that's all. Please bear with my poor english and happy mmaping :-)) I'd like
+to be informed if you decide to use my library in a program of yours.
+Postcards are always wellcome :-)).
+
+

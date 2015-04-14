@@ -1,0 +1,15 @@
+#include <gnome-factory.idl>
+
+module GNOME {
+  exception POSIX_ERROR { string errorstr; };
+
+  interface FileManagerWindow {
+    /* not much yet */
+    oneway void close();
+  };
+
+  interface FileManagerFactory : GenericFactory {
+    FileManagerWindow create_window(in string dir)
+      raises (POSIX_ERROR);
+  };
+};

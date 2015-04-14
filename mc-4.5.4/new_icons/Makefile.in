@@ -1,0 +1,70 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+rootdir = $(srcdir)/..
+@MCFG@@MCF@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+#
+# Distribution variables
+#
+
+DISTICONS = Makefile.in $(ALLICONS)
+ALLICONS = 			\
+	gnome-image-bmp.png	\
+	gnome-image-generic.png	\
+	gnome-image-gif.png	\
+	gnome-image-ief.png	\
+	gnome-image-jpeg.png	\
+	gnome-image-pbm.png	\
+	gnome-image-pgm.png	\
+	gnome-image-png.png	\
+	gnome-image-pnm.png	\
+	gnome-image-ppm.png	\
+	gnome-image-ras.png	\
+	gnome-image-rgb.png	\
+	gnome-image-tga.png	\
+	gnome-image-tiff.png	\
+	gnome-image-xbm.png	\
+	gnome-image-xpm.png	\
+	gnome-image-xwd.png	\
+	gnome-pack-deb.png	\
+	gnome-pack-rpm.png	\
+	gnome-video-mpeg.png	\
+	gnome-video-quicktime.png \
+	gnome-video-x-msvideo.png 
+
+all:
+
+install: @insticons@
+
+install_icons:
+	for I in $(ALLICONS); \
+	do $(INSTALL_DATA) $(srcdir)/$$I $(DESTDIR)$(icondir)/$$I; done
+
+uninstall:
+	for I in $(ALLICONS); \
+	do $(RMF) $(DESTDIR)$(icondir)/$$I; done
+	-rmdir $(DESTDIR)$(icondir)
+
+check:
+	@echo no tests are supplied.
+
+TAGS:
+
+cross:
+
+clean:
+
+realclean:
+
+distclean:
+	-$(RMF) $(srcdir)/*~ $(srcdir)/Makefile
+
+distcopy:
+	$(CP) $(DISTICONS) ../../mc-$(VERSION)/new_icons
+
+depend dep:

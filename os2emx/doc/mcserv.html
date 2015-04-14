@@ -1,0 +1,78 @@
+<PRE>
+
+mcserv(8)                                               mcserv(8)
+
+<H2>NAME</H2>
+       mcserv - Midnight Commander file server.
+
+<H2>USAGE</H2>
+       <b>mcserv</b> [-diqvf] [-p portnum]
+
+<H2>DESCRIPTION</H2>
+       mcserv  is  the  server program for the Midnight Commander
+       networking file system.  It provides access  to  the  host
+       file  system  to  clients running the Midnight file system
+       (currently, only the Midnight Commander file manager).
+
+       If the program is run as root the program will try to  get
+       a reserved port otherwise it will use 9876 as the port.
+
+       If the system has a portmapper running, then the port will
+       be registered with the portmapper and  thus  clients  will
+       automatically  connect  to  the right port.  If the system
+       does not have a portmapper, then a port should be manually
+       specified with the -p option (see below).
+
+<H2>OPTIONS</H2>
+       <i>-d</i>     Become  a  daemon,  you should use this flag if you
+              start the program from one of  the  system  startup
+              files.   This flag will make the program handle any
+              number of incoming requests by forking a  new  copy
+              of itself for each client.
+
+       <i>-q</i>     Quiet mode.
+
+       <i>-p</i>     To  make the server listen on the specified <b>portnum</b>
+              port.
+
+       <i>-f</i>     Force ftp authorization if classic fails.  This  is
+              only  useful  on  systems  whose  password checking
+              method is not supported by this version of  mcserv.
+              Authorization  is then done by trying to connect to
+              the local ftp server and supplying  user  name  and
+              password. Ftp server then says whether are you suc-
+              cessfuly logged in or whether  you  typed  a  wrong
+              password.  Use  this with care and only when neces-
+              sary.
+
+       <i>-v</i>     Toggle on the verbose mode.
+
+<H2>LICENSE</H2>
+       This program is distributed under the  terms  of  the  GNU
+       General  Public  License as published by the Free Software
+       Foundation. See the  built-in  help  for  details  on  the
+       License and the lack of warranty.
+
+<H2>BUGS</H2>
+       This  program  currently  uses port 9876, and not a system
+
+                           16 May 1995                          1
+
+mcserv(8)                                               mcserv(8)
+
+       secure port.  This is a potential security  problem  since
+       it  could  be  run by any user on the system if the system
+       daemon is not running.
+
+<H2>SEE ALSO</H2>
+       <A HREF="/cgi-bin/man-cgi?mc+1">mc(1)</A>, <A HREF="/cgi-bin/man-cgi?portmap+8">portmap(8)</A>
+
+       The Midnight Commander page on the  World Wide Web:
+            http://www.gnome.org/mc/
+
+<H2>AUTHORS</H2>
+       Miguel de Icaza (miguel@roxanne.nuclecu.unam.mx).
+
+                           16 May 1995                          2
+
+</PRE>

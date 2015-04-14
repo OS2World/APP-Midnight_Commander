@@ -1,0 +1,28 @@
+/* XPM */
+static char *DIRECTORY_CLOSE_XPM[] = {
+/* columns rows colors chars-per-pixel */
+"16 16 6 1",
+"  c Gray0",
+". c #635d4f",
+"X c #88806c",
+"o c #a9907b",
+"O c Gray100",
+"+ c None",
+/* pixels */
+"++++++++++++++++",
+"+++++++++  +++++",
+"+++++++  XX  +++",
+"+  ++  XX.   +++",
+" XX  XX.  ooo ++",
+" XXXX.  ooooo ++",
+"+ X.  oooooooo +",
+"+   oooooooooo +",
+"++  oooooooooo +",
+"++   oooooooo  +",
+"+++  oooooo  +++",
+"+++   ooo  +++++",
+"++++  o  +++++++",
+"+++++  +++++++++",
+"++++++++++++++++",
+"++++++++++++++++"
+};

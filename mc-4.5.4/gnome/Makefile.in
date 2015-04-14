@@ -1,0 +1,287 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+rootdir = $(srcdir)/..
+@MCFG@@MCF@
+
+GNOMEDEFS     = -DHAVE_X -DHAVE_GNOME @GNOME_INCLUDEDIR@ 
+CFLAGS        = -g $(XCFLAGS) @X_CFLAGS@
+CPPFLAGS      = $(XCPPFLAGS) -I$(vfsdir) -I$(slangdir) $(GNOMEDEFS)
+LDFLAGS       = $(XLDFLAGS) @GNOME_LIBDIR@ @GNOMEUI_LIBS@
+pCORBA_LDFLAGS = $(XLDFLAGS) @GNOME_LIBDIR@ @GNOMEGNORBA_LIBS@
+DEFS = $(XDEFS)
+LIBS = $(XLIBS) @TERMNET@ 
+EXTRALIBS = @LVFS@ -lgtkedit @LINTL@
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+PIXMAPS =			\
+	dev.xpm			\
+	link.xpm		\
+	directory.xpm		\
+	listing-list.xpm	\
+	listing-iconic.xpm	\
+	dir-close.xpm		\
+	dir-open.xpm
+
+GNOMESRCS = 		\
+	gaction.c	\
+	gblist.c	\
+	gcache.c	\
+	gcliplabel.c	\
+	gcmd.c		\
+	gcorba.c	\
+	gdesktop-icon.c	\
+	gdesktop.c 	\
+	gdnd.c		\
+	ghelp.c 	\
+	gicon.c		\
+	ginfo.c 	\
+	gkey.c 		\
+	glayout.c 	\
+	gmain.c 	\
+	gmc-chargrid.c	\
+	gmenu.c		\
+	gmetadata.c	\
+	gpageprop.c	\
+	gpopup.c	\
+	gprop.c		\
+	gdialogs.c	\
+	gscreen.c 	\
+	gtools.c 	\
+	gtkdtree.c	\
+	gtree.c		\
+	gutil.c		\
+	gview.c		\
+	gwidget.c	\
+	temp-hack.c
+
+GNOMEHDRS = 		\
+	gblist.h	\
+	gcache.h	\
+	gcliplabel.h	\
+	gcmd.h		\
+	gconf.h		\
+	gdesktop-icon.h	\
+	gdesktop.h	\
+	gdnd.h		\
+	gicon.h		\
+	gmain.h 	\
+	gmc-chargrid.h	\
+	gmetadata.h	\
+	gpageprop.h	\
+	gpopup.h	\
+	gprop.h		\
+	gdialogs.h	\
+	gscreen.h	\
+	gtkdtree.h	\
+	gtree.h		\
+	gwidget.h
+
+ICONS = 			\
+	directory.xpm		\
+	i-dirclosed.png		\
+	i-directory.png		\
+	i-executable.png	\
+	i-symlink.png		\
+	i-regular.png		\
+	i-core.png		\
+	i-sock.png		\
+	i-chardev.png		\
+	i-blockdev.png		\
+	i-stalled.png
+
+#
+# These objects from ../src do not depend on HAVE_X / HAVE_GNOME??
+#
+LOBJS = mad.o
+
+#
+# These objects from ../src do depend on HAVE_GNOME
+#
+OOBJS = dlg.o screen.o widget.o wtools.o info.o boxes.o \
+	file.o find.o dialog.o key.o chmod.o chown.o view.o \
+	panelize.o hotlist.o background.o dir.o util.o \
+	win.o color.o profile.o user.o ext.o setup.o \
+	subshell.o terms.o achown.o fsusage.o mountlist.o \
+	@XCURSES@ @REGEX_O@ complete.o command.o \
+	option.o cmd.o utilunix.o xslint.o gdialogs.o filenot.o 
+
+CORBAOBJS = 			\
+	main-corba.o		\
+	gcorba.o		\
+	FileManager-impl.o	\
+	FileManager-skels.o	\
+	FileManager-common.o
+
+OBJS = 			\
+	$(LOBJS) 	\
+	$(OOBJS) 	\
+	gaction.o	\
+	gblist.o	\
+	gcache.o	\
+	gcliplabel.o	\
+	gcmd.o		\
+	gdesktop-icon.o	\
+	gdesktop.o 	\
+	gdnd.o		\
+	ghelp.o 	\
+	gicon.o		\
+	ginfo.o 	\
+	gkey.o 		\
+	glayout.o 	\
+	gmain.o 	\
+	gmc-chargrid.o 	\
+	gmenu.o 	\
+	gmetadata.o	\
+	gpageprop.o	\
+	gpopup.o	\
+	gprop.o		\
+	gscreen.o 	\
+	gtools.o 	\
+	gtree.o		\
+	gutil.o 	\
+	gview.o		\
+	gtkdtree.o	\
+	gwidget.o
+
+NORMALOBJS =		\
+	main.o
+
+CORBA_GENERATED =		\
+	FileManager.h		\
+	FileManager-stubs.c	\
+	FileManager-skels.c	\
+	FileManager-common.c
+
+CORBA_SOURCES = 		\
+	gcorba.c
+
+$(CORBA_GENERATED): $(rootdir)/idl/FileManager.idl
+	orbit-idl `gnome-config --cflags idl` $(rootdir)/idl/FileManager.idl
+
+$(CORBA_SOURCES): $(CORBA_GENERATED)
+
+FileManager-impl.c: FileManager.h
+
+EXTRA_DIST = gnome.TODO layout gmc.gnorba mc.keys.in.in	
+
+DISTGNOME = \
+	Makefile.in $(EXTRA_DIST) $(CORBA_SOURCES) \
+	$(PIXMAPS) $(ICONS) $(GNOMESRCS) $(GNOMEHDRS)
+
+.c.o:
+	$(CC) -c $(CPPFLAGS) $(DEFS) $(CFLAGS) $<
+
+main-corba.o: main.c
+	$(CC) -c -DHAVE_CORBA $(CPPFLAGS) $(DEFS) $(CFLAGS) $< -o main-corba.o
+
+all: @gmc@ Makefile mc.keys 
+
+Makefile: Makefile.in ../config.status
+	(cd ..; CONFIG_FILES=gnome/Makefile CONFIG_HEADERS= ./config.status)
+
+gmc: checklinks 
+	$(MAKE) mx
+
+mx: @LIBVFS@ $(OBJS) $(NORMALOBJS) @LIBSLANG@ libgtkedit.a
+	$(CC) $(LDFLAGS) -o gmc $(NORMALOBJS) $(OBJS) -L../vfs -L../slang -L../gtkedit $(EXTRALIBS) $(LIBS) 
+	touch mx
+
+corba-gmc: @LIBVFS@ $(OBJS) $(CORBAOBJS) @LIBSLANG@ libgtkedit.a
+	$(CC) $(CORBA_LDFLAGS) -o corba-gmc $(CORBAOBJS) $(OBJS) -L../vfs -L../slang -L../gtkedit $(EXTRALIBS) $(LIBS) 
+
+mc.keys: mc.keys.in Makefile
+	sed -e 's^\@icondir\@^$(icondir)^g' < mc.keys.in > mc.keys.tmp \
+	&& mv mc.keys.tmp mc.keys 
+
+mc.keys.in: mc.keys.in.in Makefile.in ../config.status
+	(cd ..; CONFIG_FILES=gnome/mc.keys.in CONFIG_HEADERS= ./config.status)
+
+@LIBVFS@:
+	cd ../vfs; $(MAKE) @LIBVFS@
+@PCENTRULE@	-$(RMF) @LIBVFS@
+@PCENTRULE@	$(LN_S) ../vfs/@LIBVFS@ .
+
+libmcslang.a:
+	cd ../slang; $(MAKE) libmcslang.a
+@PCENTRULE@	-$(RMF) libmcslang.a
+@PCENTRULE@	$(LN_S) ../slang/libmcslang.a .
+
+libgtkedit.a:
+	cd ../gtkedit; $(MAKE) libgtkedit.a
+@PCENTRULE@	-$(RMF) libgtkedit.a
+@PCENTRULE@	$(LN_S) ../gtkedit/libgtkedit.a .
+
+checklinks:
+	@if test -f $(gnomedir)/regex.c; then echo ok; \
+	else $(MAKE) sourcelinks; fi
+	@if test -f regex.o; then echo ok; else $(MAKE) links; fi
+
+links:
+	for I in $(LOBJS); do $(RMF) $$I; $(LN_S) ../src/$$I $$I >/dev/null 2>&1; done; true
+
+sourcelinks:
+	-cd $(gnomedir); $(LN_S) ../src/*.[ch] . >/dev/null 2>&1; $(LN_S) ../src/*.inc .; true
+
+cleansourcelinks:
+	-if test -f $(gnomedir)/regex.c; then \
+	    cd $(gnomedir); find . \( -lname '*.[ch]' -o -lname '*.inc' \) | xargs $(RM); \
+	fi
+
+check:
+	@echo no tests are supplied.
+
+TAGS: $(GNOMESRCS)
+	etags $(GNOMESRCS)
+
+clean:
+	$(RMF) @gmc@ *.o core a.out mx @LIBVFS@ libgtkedit.a libmcslang.a
+
+realclean: clean
+	$(RMF) .depend
+	$(RMF) TAGS
+	$(RMF) *~
+
+distclean: cleansourcelinks
+	-$(RMF) $(srcdir)/*~ $(srcdir)/*.o $(srcdir)/gmc $(srcdir)/core
+	-$(RMF) $(srcdir)/a.out
+	-if test $(srcdir) = .; then $(MAKE) realclean; fi
+	-$(RMF) $(srcdir)/Makefile
+
+distcopy:
+	$(CP) $(DISTGNOME) ../../mc-$(VERSION)/gnome
+
+install: install_@gmc@
+
+install_:
+
+install_gmc: all 
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(bindir)
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(icondir)
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(libdir)
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) gmc $(DESTDIR)$(bindir)/$(binprefix)gmc
+	for I in $(ICONS); \
+	do $(INSTALL_DATA) $(srcdir)/$$I $(DESTDIR)$(icondir)/$$I; done
+	$(INSTALL_DATA) $(srcdir)/layout $(DESTDIR)$(libdir)/layout
+	$(mcsrcdir)/xmkdir $(DESTDIR)$(datadir)/mime-info
+	$(INSTALL_DATA) mc.keys $(DESTDIR)$(datadir)/mime-info
+
+uninstall: 
+	-$(RMF) $(DESTDIR)$(bindir)/$(binprefix)gmc
+	for I in $(ICONS); \
+	do $(RMF) $(DESTDIR)$(icondir)/$$I; done
+	-rmdir $(DESTDIR)$(icondir)
+	-$(RMF) $(DESTDIR)$(libdir)/layout
+
+depend dep: @gmcdep@
+
+gmcdep: checklinks mcdep
+
+fastdeploc: @fastdepslang@ @fastdepvfs@
+
+# ***Dependencies***Do not edit***
+@DOTDEPEND@
+# ***End of dependencies***

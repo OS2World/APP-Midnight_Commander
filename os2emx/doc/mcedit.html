@@ -1,0 +1,445 @@
+<PRE>
+
+mcedit(1)                                               mcedit(1)
+
+<H2>NAME</H2>
+       mcedit  - Full featured terminal text editor for Unix-like
+       systems.
+
+<H2>USAGE</H2>
+       <b>mcedit</b> [ file [-bcCdfhstVx?]]
+
+<H2>DESCRIPTION</H2>
+       Mcedit is a link to <b>mc,</b> the Midnight Commander, forcing it
+       to  immediately start its internal editor. The editor is a
+       terminal version of the <b>cooledit</b> standalone X Window  edi-
+       tor.
+
+<H2>OPTIONS</H2>
+       <i>-b</i>     Forces black and white display.
+
+       <i>-c</i>     Force color mode on terminals where <b>mcedit</b> defaults
+              to black and white.
+
+       <i>-C</i> <i>&lt;keyword&gt;=&lt;FGcolor&gt;,&lt;BGcolor&gt;:&lt;keyword&gt;=</i> <i>...</i>
+              Used to specify a different color set,  where  <i>key-</i>
+              <i>word</i>  is  one  of normal, selected, marked, markse-
+              lect,  errors,  reverse  menu,  menusel,   menuhot,
+              menuhotsel  and  gauge. The colors are optional and
+              are one of  black,  gray,  red,  brightred,  green,
+              brightgreen,   brown,   yellow,  blue,  brightblue,
+              magenta, brightmagenta, cyan, brightcyan, lightgray
+              and white.  See the <b>Colors</b> section in <b>mc.1</b> for more
+              information.
+
+       <i>-d</i>     Disables mouse support.
+
+       <i>-f</i>     Displays the compiled-in search paths for  Midnight
+              Commander files.
+
+       <i>-t</i>     Used  only  if the code was compiled with Slang and
+              terminfo: it makes the Midnight Commander  use  the
+              value  of  the  <b>TERMCAP</b>  variable  for the terminal
+              information instead of the information on the  sys-
+              tem wide terminal database
+
+       <i>-V</i>     Displays the version of the program.
+
+       <i>-x</i>     Forces  xterm  mode.   Used  when running on xterm-
+              capable terminals (two screen modes,  and  able  to
+              send mouse escape sequences).
+
+Features
+       The  internal file editor provides most of the features of
+       common full screen editors. It has an extensible file size
+       limit  of  sixteen  megabytes and edits binary files flaw-
+       lessly. The features  it  presently  supports  are:  Block
+       copy,  move,  delete, cut, paste; <i>key</i> <i>for</i> <i>key</i> <i>undo</i> <i>;</i> pull-
+
+                         30 January 1997                        1
+
+mcedit(1)                                               mcedit(1)
+
+       down menus;  file  insertion;  macro  definition;  regular
+       expression  search  and  replace (and our own scanf-printf
+       search and replace); shift-arrow MSW-MAC text highlighting
+       (for  the  linux  console  only); insert-overwrite toggle;
+       word-wrap; a variety of tabbing options; syntax highlight-
+       ing  for  various  file  types; and an option to pipe text
+       blocks through shell commands like indent and ispell.
+
+Keys
+       The editor is very easy to use and requires  no  tutoring.
+       To  see  what  keys  do what, just consult the appropriate
+       pull-down menu. Other keys are:  Shift  movement  keys  do
+       text  highlighting  (Linux console only).  <b>Ctrl-Ins</b> copies
+       to the file <b>~/.cedit/cooledit.clip</b>, and  <b>Shift-Ins</b>  pastes
+       from    <b>~/.cedit/cooledit.clip</b>.     <b>Shift-Del</b>    cuts   to
+       <b>~/.cedit/cooledit.clip</b>, and <b>Ctrl-Del</b>  deletes  highlighted
+       text  -  all  linux console only.  The completion key (see
+       <b>mc.1</b>) also does a hard return without an automatic indent.
+       Mouse  highlighting  also  works, and you can override the
+       mouse as usual by holding down the shift key  while  drag-
+       ging  the  mouse to let normal terminal mouse highlighting
+       work.
+
+       To define a macro, press <b>Ctrl-R</b> and then type out the  key
+       strokes  you  want to be executed. Press <b>Ctrl-R</b> again when
+       finished. You can then assign the macro  to  any  key  you
+       like  by pressing that key. The macro is executed when you
+       press <b>Ctrl-A</b> and then the assigned key. The macro is  also
+       executed  if you press Meta, Ctrl, or Esc and the assigned
+       key, provided that the key is not used for any other func-
+       tion.  Once  defined,  the macro commands go into the file
+       <b>~/.cedit/cooledit.macros</b>.  Do NOT edit  this  file  unless
+       you  are not going to use macros again in the same editing
+       session, because <b>Mcedit</b> caches macro key defines  in  mem-
+       ory.   <b>Mcedit</b>  now  overwrites a macro if a macro with the
+       same key already exists, so you won't have  to  edit  this
+       file.  You will also have to restart other running editors
+       for macros to take effect.
+
+       <b>F19</b> will format C code when it is highlighted. For this to
+       work, make an executable file called <b>.cedit/edit.indent.rc</b>
+       in your home directory containing the following:
+
+              #!/bin/sh
+              # Use $HOME instead of ~ if this doesn't work.
+              # You may also have to use a different redirection
+              # syntax for some machines.
+              /usr/bin/indent -kr -pcs ~/.cedit/cooledit.block &gt;& /dev/null
+              cat /dev/null &gt; ~/.cedit/cooledit.error
+
+       <b>C-p</b> will run ispell on a block of text in a  similar  way.
+       The file is <b>.cedit/edit.spell.rc</b>
+
+                         30 January 1997                        2
+
+mcedit(1)                                               mcedit(1)
+
+              #!/bin/sh
+              # Use $HOME instead of ~ if this doesn't work.
+              # You may also have to use a different redirection
+              # syntax for some machines.
+              /usr/local/bin/ispell ~/.cedit/cooledit.block &gt;& /dev/null
+              cat /dev/null &gt; ~/.cedit/cooledit.error
+
+Redefining Keys
+       Keys  may be redefined from the Midnight Commander options
+       menu.
+
+<H2>SYNTAX HIGHLIGHTING</H2>
+       As of version 3.6.0,  <b>cooledit</b>  has  syntax  highlighting.
+       This  means  that  keywords and contexts (like C comments,
+       string  constants,  etc)  are  highlighted  in   different
+       colours.  The following section explains the format of the
+       file <b>~/.cedit/syntax</b>.
+
+       The file <b>~/.cedit/syntax</b> (<b>~/.cedit/mcsyntax</b> for mcedit) is
+       rescanned  on  opening  of a any new editor file. The file
+       contains rules for highlighting, each of which is given on
+       a  seperate  line, and define which keywords will be high-
+       lighted to what colour. The file is also divided into sec-
+       tions,  each  beginning with a line with the <b>file</b> command,
+       followed by a regular expression. The  regular  expression
+       dictates  the file name that that set of rules applies to.
+
+       A section ends with the start of a new section. Each  sec-
+       tion  is  divided into contexts, and each context contains
+       rules. A context is a scope within the text that a partic-
+       ular  set  of  rules  belongs to. For instance, the region
+       within a C style comment (i.e. between <b>/*</b> and <b>*/</b>) has  its
+       own  colour.  This  is a context, although it will have no
+       further rules inside it because there is probably  nothing
+       that we want highlighted within a C comment.
+
+       A trivial C programming section might look like this:
+
+       file .\*\\.c
+
+       wholechars abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_
+
+       # default colors
+       context default
+         keyword  whole  if       yellow
+         keyword  whole  else     yellow
+         keyword  whole  for      yellow
+         keyword  whole  while    yellow
+         keyword  whole  do       yellow
+         keyword  whole  switch   yellow
+         keyword  whole  case     yellow
+         keyword  whole  static   yellow
+
+                         30 January 1997                        3
+
+mcedit(1)                                               mcedit(1)
+
+         keyword  whole  extern   yellow
+         keyword         {        yellow
+         keyword         }        yellow
+         keyword         '*'      green
+
+       # C comments
+       context /\* \*/ brown
+
+       # C preprocessor directives
+       context linestart # \n red
+         keyword  \\\n  yellow
+
+       # C string constants
+       context " " green
+         keyword  %d    brightgreen
+         keyword  %s    brightgreen
+         keyword  %c    brightgreen
+         keyword  \\"   brightgreen
+
+       Each context starts with a line of the form:
+       <b>context</b>  [<b>exclusive</b>]  [<b>whole</b>|<b>wholeright</b>|<b>wholeleft</b>] [<b>lines-</b>
+       <b>tart</b>] <i>delim</i> [<b>linestart</b>] <i>delim</i> [<i>foreground</i>] [<i>background</i>]
+
+       One exception is the first context. It must start with the
+       command
+       <b>context</b> <b>default</b> [<i>foreground</i>] [<i>background</i>]
+       or else <b>cooledit</b> will return an error.
+
+       The <b>linestart</b> option dictates that <i>delim</i> must start at the
+       beginning of a line.
+
+       The <b>whole</b> option tells that delim must be  a  whole  word.
+       What constitutes a whole word are a set of characters that
+       can  be  changed  at  any  point  in  the  file  with  the
+       <b>wholechars</b> command. The <b>wholechars</b> command at the top just
+       sets the set exactly to its default  and  could  therefore
+       have been omitted. To specify that a word must be whole on
+       the left only, you can use the <b>wholeleft</b> option, and simi-
+       larly  on  the right. The left and right set of characters
+       can be set seperately with,
+       <b>wholechars</b> [<b>left</b>|<b>right</b>] <i>characters</i>
+
+       The <b>exclusive</b> option causes the text  between  the  delim-
+       iters  to  be  highlighted,  but  not the delimiters them-
+       selves.
+
+       Each rule is a line of the form:
+       <b>keyword</b>  [<b>whole</b>|<b>wholeright</b>|<b>wholeleft</b>]  [<b>linestart</b>]  <i>string</i>
+       <i>foreground</i> [<i>background</i>]
+
+       Context or keyword strings are interpreted so that you can
+       include tabs and spaces with the sequences \t and \s. New-
+       lines and the \ are specified with \n and \\ respectively.
+       Since whitespace is used as a seperator,  it  may  not  be
+
+                         30 January 1997                        4
+
+mcedit(1)                                               mcedit(1)
+
+       used  explicitedly.  Also, \* must be used to specify a *.
+       The * itself is a wildcard  that  matches  any  length  of
+       characters. For example,
+         keyword         '*'      green
+       colours  all C single character constants green. You could
+       also have used
+         keyword         "*"      green
+       to colour string constants, except that the matched string
+       may  not  cross  newlines. <i>The</i> <i>wildcard</i> <i>may</i> <i>be</i> <i>used</i> <i>within</i>
+       <i>context</i> <i>delimiters</i> <i>as</i> <i>well</i>, but you cannot have a wildcard
+       as the last or first character.
+
+       Important to note is the line
+         keyword  \\\n  yellow
+       This  line  defines a keyword containing the \ and newline
+       characters.  Because keywords  have  a  higher  precedence
+       than context delimiters, this keyword prevents the context
+       from ending at the end of a line if the line ends in  a  \
+       thus  allowing C preprocessor directive to continue across
+       multiple lines.
+
+       Comment may be included on a line of there own  and  begin
+       with a #.
+
+       Because of the simplicity of the implementation, there are
+       a few intricacies that will not be coped  with  correctly,
+       but  these  are  a minor irritation. On the whole, a broad
+       spectrum of quite complicated situations are handled  with
+       these  simple  rules.  It is a good idea to take a look at
+       the syntax file to see some of the nifty tricks you can do
+       with  a  little  imagination. If you can't get by with the
+       rules I have coded, and you think you have rule that would
+       be useful, please email me with your request.
+
+<H2>OPTIONS</H2>
+       Most  options can now be set from the editors options dia-
+       log box. See the <b>Options</b> menu. The following  options  are
+       defined  in  You  can  modifiy  them  to change the editor
+       behaviour, by editing the file.   Unless  specified,  a  1
+       sets  the  option  to  on,  and  a 0 sets it to off, as is
+       usual.
+
+       <i>use</i><b>_</b><i>internal</i><b>_</b><i>edit</i>
+              This option is ignored when envoking <b>mcedit.</b>
+
+       <i>editor</i><b>_</b><i>key</i><b>_</b><i>emulation</i>
+              1 for <b>Emacs</b> keys, and 0 for normal <b>Cooledit</b> keys.
+
+       <i>editor</i><b>_</b><i>tab</i><b>_</b><i>spacing</i>
+              Interpret  the  tab  character  as  being  of  this
+              length.  Default is 8. You should avoid using other
+              than 8 since most other editors  and  text  viewers
+              assume     a     tab     spacing    of    8.    Use
+
+                         30 January 1997                        5
+
+mcedit(1)                                               mcedit(1)
+
+              <b>editor_fake_half_tabs</b> to  simulate  a  smaller  tab
+              spacing.
+
+       <i>editor</i><b>_</b><i>fill</i><b>_</b><i>tabs</i><b>_</b><i>with</i><b>_</b><i>spaces</i>
+              Never  insert  a  tab  space.  Rather insert spaces
+              (ascii 20h) to fill to the desired tab size.
+
+       <i>editor</i><b>_</b><i>return</i><b>_</b><i>does</i><b>_</b><i>auto</i><b>_</b><i>indent</i>
+              Pressing return will tab across to match the inden-
+              tation of the first line above that has text on it.
+
+       <i>editor</i><b>_</b><i>backspace</i><b>_</b><i>through</i><b>_</b><i>tabs</i>
+              Make a single backspace delete all the space to the
+              left  margin if there is no text between the cursor
+              and the left margin.
+
+       <i>editor</i><b>_</b><i>fake</i><b>_</b><i>half</i><b>_</b><i>tabs</i>
+              This will emulate a half tab for those who want  to
+              program  with  a  tab spacing of 4, but do not want
+              the tab size changed from 8 (so that the code  will
+              be  formatted the same when displayed by other pro-
+              grams). When editing between text and the left mar-
+              gin,  moving  and  tabbing  will be as though a tab
+              space were 4, while actually using spaces and  nor-
+              mal  tabs  for  an optimal fill.  When editing any-
+              where else, a normal tab is inserted.
+
+       <i>editor</i><b>_</b><i>option</i><b>_</b><i>save</i><b>_</b><i>mode</i>
+              (0, 1 or 2.) The save mode (see  the  options  menu
+              also)  allows  you to change the method of saving a
+              file. Quick save (0) saves the file by immediately,
+              truncating the disk file to zero length (i.e. eras-
+              ing it) and the writing the editor contents to  the
+              file.  This  method is fast, but dangerous, since a
+              system error during a file save will leave the file
+              only partially written, possibly rendering the data
+              irretrievable.  When  saving,  the  safe  save  (1)
+              option  enables  creation  of a temporary file into
+              which the file contents are first written.  In  the
+              event   of   an   problem,  the  original  file  is
+              untouched. When the temporary file is  successfully
+              written,  it is renamed to the name of the original
+              file, thus replacing it. The safest method is  cre-
+              ate  backups  (2).  Where  a backup file is created
+              before any changes are made. You can  specify  your
+              own  backup file extension in the dialog. Note that
+              saving twice will replace your backup  as  well  as
+              your original file.
+
+Miscellaneous
+       (Scanf search and replace have previously not worked prop-
+       erly.  With this release, problems with search and replace
+       have been fixed.)
+
+                         30 January 1997                        6
+
+mcedit(1)                                               mcedit(1)
+
+       You can use scanf search and replace to search and replace
+       a C format string. First take a look  at  the  <b>sscanf</b>  and
+       <b>sprintf</b>  man  pages to see what a format string is and how
+       it works. An example is as follows: Suppose  you  want  to
+       replace  all  occurances  of  say,  an open bracket, three
+       comma seperated numbers, and a  close  bracket,  with  the
+       word  <i>apples,</i>  the third number, the word <i>oranges</i> and then
+       the second number, you would fill in  the  Replace  dialog
+       box as follows:
+
+       <b>Enter</b> <b>search</b> <b>string</b>
+       (%d,%d,%d)
+       <b>Enter</b> <b>replace</b> <b>string</b>
+       apples %d oranges %d
+       <b>Enter</b> <b>replacement</b> <b>argument</b> <b>order</b>
+       3,2
+
+       The last line specifies that the third and then the second
+       number are to be used in place of the first and second.
+
+       It is advisable to use this feature with Prompt On Replace
+       on,  because  a  match is thought to be found whenever the
+       number of arguments found matches the number given,  which
+       is  not  always a real match. Scanf also treats whitespace
+       as being elastic.  Note that the scanf format %[  is  very
+       useful for scanning strings, and whitespace.
+
+       The  editor  also  displays non-us characters (160+). When
+       editing binary files, you should set  <b>display</b>  <b>bits</b>  to  7
+       bits  in  the  Midnight Commander options menu to keep the
+       spacing clean.
+
+<H2>FILES</H2>
+       @prefix@/mc.hlp
+
+              The help file for the program.
+
+       @prefix@/lib/mc/mc.ini
+
+              The default system-wide setup for the Midnight Com-
+              mander,  used  only  if  the  user  lacks  his  own
+              ~/.mc.ini file.
+
+       @prefix@/lib/mc/mc.lib
+
+              Global settings for the Midnight  Commander.   Set-
+              tings  in this file are global to any Midnight Com-
+              mander, it is useful to define site-global terminal
+              settings.
+
+       $HOME/.mc.ini
+
+                         30 January 1997                        7
+
+mcedit(1)                                               mcedit(1)
+
+              User's  own setup. If this file is present then the
+              setup is loaded from here instead  of  the  system-
+              wide startup file.
+
+       $HOME/.cedit/
+
+              User's own temporary directory where block commands
+              are processed and saved.
+
+<H2>LICENSE</H2>
+       This program is distributed under the  terms  of  the  GNU
+       General  Public  License as published by the Free Software
+       Foundation. See the built-in help of the Midnight  Comman-
+       der for details on the License and the lack of warranty.
+
+<H2>AVAILABILITY</H2>
+       The  latest  version  of  this  program  can  be  found at
+       ftp.nuclecu.unam.mx in the directory /linux/local and from
+       Europe at sunsite.mff.cuni.cz in the directory /GNU/mc and
+       at ftp.teuto.de in the directory /lmb/mc.   The  X  Window
+       version    can    be    found    at   sunsite.unc.edu   in
+       /pub/Linux/apps/editors/X  or  at  argeas.argos.hol.gr  in
+       /pub/unix/cooledit.
+
+<H2>SEE ALSO</H2>
+       <A HREF="/cgi-bin/man-cgi?cooledit+1">cooledit(1)</A>, <A HREF="/cgi-bin/man-cgi?mc+1">mc(1)</A>, <A HREF="/cgi-bin/man-cgi?gpm+1">gpm(1)</A>, <A HREF="/cgi-bin/man-cgi?terminfo+1">terminfo(1)</A>, <A HREF="/cgi-bin/man-cgi?scanf+3">scanf(3)</A>.
+
+<H2>AUTHORS</H2>
+       Paul  Sheer  (psheer@icon.co.za)  is  the developer of the
+       Midnight Commander's internal editor.
+
+<H2>BUGS</H2>
+       See the file <b>README.edit</b>  in  the  distribution  for  more
+       information.
+
+                         30 January 1997                        8
+
+</PRE>

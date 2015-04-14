@@ -1,0 +1,221 @@
+# This is the "Makefile.in" that is used when vfs is built as part of
+# mc.  Any changes here must also be made in Makefile.am.
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+rootdir = $(srcdir)/..
+@MCFG@@MCF@
+
+CFLAGS   = $(XCFLAGS)
+CPPFLAGS = $(XCPPFLAGS)
+LDFLAGS  = $(XLDFLAGS)
+DEFS     = $(XDEFS)
+LIBS     = @LINTL@ @SHADOWLIB@ $(XLIBS) @TERMNET@ @PAMLIBS@ @LCRYPT@ $(XLIB)
+INSTALL  = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ -m 755
+INSTALL_DATA = @INSTALL_DATA@
+AR = @AR@
+
+#
+# VFS code
+#
+NETFILES   = tcputil.o fish.o ftpfs.o mcfs.o utilvfs.o
+
+NONETFILES = 			\
+	container.o		\
+	direntry.o		\
+	extfs.o 		\
+	local.o 		\
+	names.o			\
+	tar.o			\
+	sfs.o			\
+	vfs.o @undelfs_o@
+
+VFSSRCS = \
+	container.c 		\
+	direntry.c		\
+	extfs.c 		\
+	ftpfs.c 		\
+	fish.c 			\
+	direntry.c		\
+	local.c 		\
+	local.h			\
+	mcfs.c			\
+	names.c 		\
+	mcserv.c 		\
+	sfs.c 			\
+	shared_tar_ext.c 	\
+	shared_ftp_fish.c	\
+	tar.c 			\
+	tcputil.c		\
+	undelfs.c 		\
+	utilvfs.c		\
+	vfs.c
+
+VFSHDRS = 			\
+	container.h 		\
+	extfs.h 		\
+	fish.h			\
+	ftpfs.h 		\
+	mcfs.h 			\
+	names.h 		\
+	tar.h 			\
+	tcputil.h 		\
+	vfs.h			\
+	xdirentry.h
+
+VFSOBJS = $(NONETFILES) @NETFILES@
+
+EXTFS_MISC  = README extfs.ini
+EXTFS_CONST = a rpm hp48 mailfs patchfs sfs.ini
+
+EXTFS_IN    = 			\
+	deb.in 			\
+	lslR.in 		\
+	ucpio.in 		\
+	urar.in 		\
+	uzoo.in 		\
+	ftplist.in 		\
+	uar.in 			\
+	ulha.in 		\
+	uzip.in
+
+EXTFS_OUT = 			\
+	deb 			\
+	lslR 			\
+	ucpio 			\
+	urar 			\
+	uzoo 			\
+	ftplist 		\
+	uar 			\
+	ulha 			\
+	uzip
+
+EXTFSSTUFF = $(EXTFS_MISC) $(EXTFS_CONST) $(EXTFS_IN)
+
+#
+# Commands to build standalone version (.so)
+#
+
+VFSSOOBJS = tcputil.so fish.so ftpfs.so mcfs.so utilvfs.so local.so vfs.so \
+	tar.so sfs.so names.so container.so extfs.so util-alone.so \
+	util.sor utilunix.sor direntry.so
+
+%.sor:	../src/%.c
+	$(CC) -fpic -Wall -c $(CPPFLAGS) $(DEFS) $(CFLAGS) -DVFS_STANDALONE $< -o $@
+
+%.so:	%.c
+	$(CC) -fpic -Wall -c $(CPPFLAGS) $(DEFS) $(CFLAGS) -DVFS_STANDALONE $< -o $@
+
+libvfs.so: $(VFSSOOBJS)
+	gcc $(VFSSOOBJS) -shared -o libvfs.so
+
+libvfs.a: $(VFSSOOBJS)
+	$(RMF) $@
+	$(AR) cr $@ $(VFSSOOBJS)
+	-$(RANLIB) $@
+
+Makefile: $(srcdir)/Make-mc.in $(builddir)/config.status
+	cd $(builddir) && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+
+#
+# Distribution variables
+#
+
+DISTVFS = 	Make-mc.in ChangeLog $(VFSSRCS) $(VFSHDRS)
+
+all: @LIBVFS@ @mcserv@
+
+.c.o:
+	$(CC) -c $(CPPFLAGS) $(DEFS) $(CFLAGS) $<
+
+check:
+	@echo no tests are supplied.
+
+checklinks:
+	@if test -f $(vfsdir)/mad.c; then echo ok; \
+	else $(MAKE) sourcelinks; fi
+
+sourcelinks:
+	-cd $(vfsdir); $(LN_S) ../src/mad.c ../src/mad.h . >/dev/null 2>&1; true
+
+mcserv: checklinks
+	$(MAKE) mcservx
+
+mcservx: mcserv.o tcputil.o mad.o
+	$(CC) $(LDFLAGS) -o mcserv mcserv.o tcputil.o mad.o $(LIBS)
+	touch mcservx
+
+libvfs-mc.a: $(VFSOBJS)
+	$(RMF) $@
+	$(AR) cr $@ $(VFSOBJS)
+	-$(RANLIB) $@
+
+showlibdep:
+	@echo 'OBJS="$(VFSOBJS)"'
+
+cross:
+	$(MAKE) CC=gcc-linux CPP="gcc-linux -E" \
+	CPPFLAGS="$(CPPFLAGS) -I/usr/local/lib/gcc-lib/i386-linux-linux/include/ncurses "
+
+TAGS: $(VFSSRCS)
+	etags $(VFSSRCS)
+
+clean:
+	$(RMF) mcserv *.o core a.out *.a mcservx *.so *.sor
+
+realclean: clean
+	$(RMF) .depend
+	$(RMF) TAGS
+	$(RMF) *~
+
+distclean:
+	-$(RMF) $(srcdir)/*~ $(srcdir)/mcserv $(srcdir)/*.o $(srcdir)/a.out
+	-$(RMF) $(srcdir)/core $(srcdir)/libvfs-mc.a $(srcdir)/libvfs.so
+	-$(RMF) $(srcdir)/mad.c $(srcdir)/mad.h
+	-if test $(srcdir) = .; then $(MAKE) realclean; fi
+	-$(RMF) $(srcdir)/Makefile
+
+install: @mcserv@ install.extfs
+	-(if test x@mcserv@ != x; then \
+	    $(INSTALL_PROGRAM) mcserv $(DESTDIR)$(bindir)/$(binprefix)mcserv; \
+	fi)
+
+install.extfs:
+	for I in $(EXTFS_MISC); do \
+	    $(INSTALL_DATA) $(srcdir)/extfs/$$I \
+	          $(DESTDIR)$(libdir)/extfs/$$I; \
+	done
+	for I in $(EXTFS_CONST) ; do \
+	    $(INSTALL_PROGRAM) $(srcdir)/extfs/$$I \
+	             $(DESTDIR)$(libdir)/extfs/$$I; \
+	done
+	for I in $(EXTFS_OUT) ; do \
+	    $(INSTALL_PROGRAM) $(builddir)/vfs/extfs/$$I \
+	             $(DESTDIR)$(libdir)/extfs/$$I; \
+	done
+
+uninstall:
+	for I in $(EXTFS_MISC); do \
+	    $(RMF) $(DESTDIR)$(libdir)/extfs/$$I; \
+	done
+	for I in $(EXTFS_CONST) $(EXTFS_OUT); do \
+	    $(RMF) $(DESTDIR)$(libdir)/extfs/$$I; \
+	done
+	-rmdir $(DESTDIR)$(libdir)/extfs
+	-$(RMF) $(DESTDIR)$(bindir)/$(binprefix)mcserv
+
+distcopy:
+	$(CP) $(DISTVFS) ../../mc-$(VERSION)/vfs
+	mkdir ../../mc-$(VERSION)/vfs/extfs
+	cd extfs; $(CP) $(EXTFSSTUFF) ../../../mc-$(VERSION)/vfs/extfs
+
+depend dep: mcdep
+
+fastdeploc:
+
+# ***Dependencies***Do not edit***
+@DOTDEPEND@
+# ***End of dependencies***

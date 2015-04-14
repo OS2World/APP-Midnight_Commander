@@ -1,0 +1,59 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+rootdir = $(srcdir)/..
+@MCFG@@MCF@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+#
+# Distribution variables
+#
+
+LIBFILES_IN = mc.ext.in mc-gnome.ext.in
+LIBFILES_OUT = mc.ext mc-gnome.ext
+LIBFILES_CONST = mc.hint mc.lib mc.menu
+TIFILES = README.xterm linux.ti xterm.ad xterm.ti ansi.ti vt100.ti xterm.tcap
+DISTLIB = $(LIBFILES_IN) $(LIBFILES_CONST) $(TIFILES) \
+	Makefile.in tdiff xnc.hlp ncurses.h mc.sh mc.csh mcserv.init \
+	mcserv.pamd tkmc.wmconfig mc.ext.in.qnx.diff mc.menu.qnx.diff
+
+all:
+
+check:
+	@echo no tests are supplied.
+
+TAGS:
+
+cross:
+
+clean:
+
+realclean:
+
+distclean:
+	$(RMF) $(srcdir)/*~ $(srcdir)/Makefile
+	for I in $(LIBFILES_OUT); do $(RMF) $(srcdir)/$$I; done
+
+install:
+	for I in $(LIBFILES_CONST); \
+	do $(INSTALL_DATA) $(srcdir)/$$I $(DESTDIR)$(libdir)/$$I; done
+	for I in $(LIBFILES_OUT); \
+	do $(INSTALL_DATA) $(builddir)/lib/$$I $(DESTDIR)$(libdir)/$$I; done
+	for I in $(TIFILES); \
+	do $(INSTALL_DATA) $(srcdir)/$$I $(DESTDIR)$(tidir)/$$I; done
+
+uninstall:
+	for I in $(LIBFILES_OUT) $(LIBFILES_CONST); \
+	do $(RMF) $(DESTDIR)$(libdir)/$$I; done
+	for I in $(TIFILES); \
+	do $(RMF) $(DESTDIR)$(tidir)/$$I; done
+	-rmdir $(DESTDIR)$(tidir)
+	-rmdir $(DESTDIR)$(libdir)
+
+distcopy:
+	$(CP) $(DISTLIB) ../../mc-$(VERSION)/lib
+
+depend dep:
